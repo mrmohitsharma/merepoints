@@ -1,0 +1,112 @@
+import 'package:flutter/widgets.dart';
+import 'package:provider/provider.dart';
+
+import 'session.dart';
+
+/// Languages offered on the first screen: English and Hindi on top, then regional.
+const languages = <(String code, String native, String english)>[
+  ('en', 'English', 'English'),
+  ('hi', 'हिंदी', 'Hindi'),
+  ('ta', 'தமிழ்', 'Tamil'),
+  ('bn', 'বাংলা', 'Bengali'),
+  ('kn', 'ಕನ್ನಡ', 'Kannada'),
+  ('ml', 'മലയാളം', 'Malayalam'),
+  ('gu', 'ગુજરાતી', 'Gujarati'),
+  ('pa', 'ਪੰਜਾਬੀ', 'Punjabi'),
+];
+
+/// UI strings. English and Hindi are complete for the main flows; other languages fall back
+/// to English until translations are added (add a map below with the same keys).
+const _strings = <String, Map<String, String>>{
+  'en': {
+    'continue': 'Continue',
+    'mobile': 'Mobile number',
+    'get_otp': 'Get OTP',
+    'verify': 'Verify',
+    'enter_otp': 'Enter the OTP',
+    'google': 'Continue with Google',
+    'who_are_you': 'How will you use Vyapar Point?',
+    'i_customer': 'I buy from shops',
+    'i_customer_sub': 'Carpenter, painter, contractor… collect points',
+    'i_shop': 'I own a shop',
+    'i_shop_sub': 'Reward your regular customers',
+    'home': 'Home',
+    'shops': 'Shops',
+    'history': 'History',
+    'profile': 'Profile',
+    'customers': 'Customers',
+    'reports': 'Reports',
+    'settings': 'Settings',
+    'my_qr': 'My QR',
+    'total_points': 'Total points',
+    'my_shop_cards': 'My shop cards',
+    'find_shops': 'Find shops',
+    'my_milestones': 'My milestones',
+    'next': 'NEXT',
+    'to_go': 'to go',
+    'crossed': 'crossed',
+    'add_points': 'Add points',
+    'redeem': 'Redeem',
+    'from_bill': 'From bill',
+    'manual_points': 'Manual points',
+    'bill_amount': 'Bill amount',
+    'invoice_no': 'Invoice no.',
+    'received': 'Received',
+    'not_received': 'Not received yet',
+    'did_you_receive': 'Did you receive',
+    'try_again': 'Try again',
+    'save': 'Save',
+    'log_out': 'Log out',
+    'switch_role': 'Switch account',
+    'language': 'Language',
+  },
+  'hi': {
+    'continue': 'आगे बढ़ें',
+    'mobile': 'मोबाइल नंबर',
+    'get_otp': 'OTP पाएं',
+    'verify': 'सत्यापित करें',
+    'enter_otp': 'OTP डालें',
+    'google': 'Google से जारी रखें',
+    'who_are_you': 'आप Vyapar Point कैसे इस्तेमाल करेंगे?',
+    'i_customer': 'मैं दुकानों से खरीदता हूँ',
+    'i_customer_sub': 'कारपेंटर, पेंटर, ठेकेदार… पॉइंट्स कमाएं',
+    'i_shop': 'मेरी दुकान है',
+    'i_shop_sub': 'अपने नियमित ग्राहकों को इनाम दें',
+    'home': 'होम',
+    'shops': 'दुकानें',
+    'history': 'इतिहास',
+    'profile': 'प्रोफ़ाइल',
+    'customers': 'ग्राहक',
+    'reports': 'रिपोर्ट',
+    'settings': 'सेटिंग्स',
+    'my_qr': 'मेरा QR',
+    'total_points': 'कुल पॉइंट्स',
+    'my_shop_cards': 'मेरे दुकान कार्ड',
+    'find_shops': 'दुकानें खोजें',
+    'my_milestones': 'मेरे लेवल',
+    'next': 'अगला',
+    'to_go': 'बाकी',
+    'crossed': 'पूरा',
+    'add_points': 'पॉइंट्स जोड़ें',
+    'redeem': 'रिडीम',
+    'from_bill': 'बिल से',
+    'manual_points': 'मैनुअल पॉइंट्स',
+    'bill_amount': 'बिल राशि',
+    'invoice_no': 'बिल नंबर',
+    'received': 'मिल गया',
+    'not_received': 'अभी नहीं मिला',
+    'did_you_receive': 'क्या आपको मिला',
+    'try_again': 'फिर से कोशिश करें',
+    'save': 'सेव करें',
+    'log_out': 'लॉग आउट',
+    'switch_role': 'खाता बदलें',
+    'language': 'भाषा',
+  },
+};
+
+String tr(String lang, String key) => _strings[lang]?[key] ?? _strings['en']![key] ?? key;
+
+extension Tr on BuildContext {
+  /// context.t('add_points')
+  String t(String key) => tr(select<Session, String>((s) => s.language), key);
+}

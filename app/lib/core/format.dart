@@ -1,0 +1,52 @@
+import 'package:intl/intl.dart';
+
+final _inr = NumberFormat('#,##,##0', 'en_IN');
+final _inr2 = NumberFormat('#,##,##0.##', 'en_IN');
+
+/// 175000 -> "1,75,000" (Indian grouping).
+String pts(num n) => _inr.format(n);
+
+/// 1750 -> "₹1,750"; 0.5 -> "₹0.5"
+String rupees(num n) => '₹${n == n.roundToDouble() ? _inr.format(n) : _inr2.format(n)}';
+
+num asNum(dynamic v) => v is num ? v : num.tryParse('$v') ?? 0;
+
+String shortDate(dynamic iso) {
+  final d = DateTime.tryParse('$iso')?.toLocal();
+  if (d == null) return '';
+  final now = DateTime.now();
+  final t = DateFormat('h:mm a', 'en').format(d);
+  if (d.year == now.year && d.month == now.month && d.day == now.day) return 'Today, $t';
+  final y = now.subtract(const Duration(days: 1));
+  if (d.year == y.year && d.month == y.month && d.day == y.day) return 'Yesterday, $t';
+  return DateFormat('d MMM, h:mm a', 'en').format(d);
+}
+
+String dayMonth(dynamic iso) {
+  final d = DateTime.tryParse('$iso')?.toLocal();
+  return d == null ? '' : DateFormat('d MMM', 'en').format(d);
+}
+
+String initials(String? name) {
+  final parts = (name ?? '').trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+  if (parts.isEmpty) return '?';
+  return (parts.first[0] + (parts.length > 1 ? parts.last[0] : '')).toUpperCase();
+}
+
+/// Mobile shown as "98765 43210".
+String prettyMobile(String? m) {
+  if (m == null) return '';
+  final ten = m.length > 10 ? m.substring(m.length - 10) : m;
+  return ten.length == 10 ? '${ten.substring(0, 5)} ${ten.substring(5)}' : ten;
+}
+
+const professions = <String, String>{
+  'carpenter': 'Carpenter',
+  'painter': 'Painter',
+  'contractor': 'Contractor',
+  'interior_designer': 'Interior designer',
+  'architect': 'Architect',
+  'plumber': 'Plumber',
+  'electrician': 'Electrician',
+  'other': 'Other',
+};

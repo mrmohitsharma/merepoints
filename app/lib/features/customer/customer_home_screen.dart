@@ -1,0 +1,303 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:provider/provider.dart';
+
+import '../../core/api.dart';
+import '../../core/format.dart';
+import '../../core/i18n.dart';
+import '../../core/session.dart';
+import '../../core/theme.dart';
+import '../../widgets/common.dart';
+import 'level_up_screen.dart';
+import 'my_qr_screen.dart';
+import 'received_sheet.dart';
+import 'shop_card_screen.dart';
+
+class CustomerHomeScreen extends StatefulWidget {
+  const CustomerHomeScreen({super.key, required this.onFindShops});
+  final VoidCallback onFindShops;
+  @override
+  State<CustomerHomeScreen> createState() => _CustomerHomeScreenState();
+}
+
+class _CustomerHomeScreenState extends State<CustomerHomeScreen> with WidgetsBindingObserver {
+  Map<String, dynamic>? _home;
+  Object? _error;
+  Timer? _poll;
+  final _shownSheets = <String>{};
+  static const _store = FlutterSecureStorage();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _load();
+    // Until push notifications are wired, check for "did you receive?" requests every 15 s.
+    _poll = Timer.periodic(const Duration(seconds: 15), (_) => _load(quiet: true));
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState s) {
+    if (s == AppLifecycleState.resumed) _load(quiet: true);
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  Future<void> _load({bool quiet = false}) async {
+    try {
+      final h = await context.read<ApiClient>().get('me/home') as Map<String, dynamic>;
+      if (!mounted) return;
+      setState(() {
+        _home = h;
+        _error = null;
+      });
+      await _maybeShowReceived(h);
+      await _maybeLevelUp(h);
+    } catch (e) {
+      if (!quiet && mounted) setState(() => _error = e);
+    }
+  }
+
+  Future<void> _maybeShowReceived(Map<String, dynamic> h) async {
+    final pending = (h['pending'] as List).cast<Map<String, dynamic>>().where((p) => p['status'] == 'paid' && !_shownSheets.contains(p['id'])).toList();
+    if (pending.isEmpty || !mounted || ModalRoute.of(context)?.isCurrent != true) return;
+    final p = pending.first;
+    _shownSheets.add('${p['id']}');
+    await showReceivedSheet(context, p);
+    if (mounted) _load(quiet: true);
+  }
+
+  Future<void> _maybeLevelUp(Map<String, dynamic> h) async {
+    final ms = h['milestones'] as Map<String, dynamic>;
+    final current = ms['current'] as String?;
+    if (current == null) return;
+    final seen = await _store.read(key: 'seen_level');
+    if (seen == null) {
+      await _store.write(key: 'seen_level', value: current); // first launch: don't celebrate old levels
+      return;
+    }
+    if (seen != current && mounted && ModalRoute.of(context)?.isCurrent == true) {
+      await _store.write(key: 'seen_level', value: current);
+      final tiles = (ms['tiles'] as List).cast<Map<String, dynamic>>();
+      final tile = tiles.where((t) => t['name'] == current).firstOrNull;
+      final next = tiles.where((t) => t['state'] == 'next').firstOrNull;
+      if (!mounted) return;
+      Navigator.push(context, MaterialPageRoute(fullscreenDialog: true, builder: (_) => LevelUpScreen(level: tile ?? {'name': current, 'perks': []}, next: next, basis: '${ms['basis']}')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.watch<Session>();
+    final h = _home;
+    if (h == null) {
+      return Scaffold(body: _error != null ? ErrorRetry(error: _error!, onRetry: _load) : const Center(child: CircularProgressIndicator()));
+    }
+    final ms = h['milestones'] as Map<String, dynamic>;
+    final cards = (h['cards'] as List).cast<Map<String, dynamic>>();
+    final offerCard = cards.where((c) => c['offer'] != null).firstOrNull;
+    final pendingHeld = (h['pending'] as List).cast<Map<String, dynamic>>();
+    return Scaffold(
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(padding: const EdgeInsets.only(bottom: 100), children: [
+          Container(
+            color: VP.blue,
+            padding: EdgeInsets.fromLTRB(18, MediaQuery.of(context).padding.top + 14, 18, 60),
+            child: Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Namaste,', style: TextStyle(color: Colors.white70, fontSize: 15)),
+                  Text(s.name ?? '', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
+                ]),
+              ),
+              if (ms['current'] != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(color: const Color(0xFFF2C14E), borderRadius: BorderRadius.circular(14)),
+                  child: Text('${ms['current']}'.toUpperCase(), style: const TextStyle(color: Color(0xFF4A3200), fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.5)),
+                ),
+            ]),
+          ),
+          Transform.translate(
+            offset: const Offset(0, -44),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: const [BoxShadow(color: Color(0x1F0F4C81), blurRadius: 20, offset: Offset(0, 6))]),
+              child: Column(children: [
+                Row(children: [
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('${context.t('total_points')} · ${h['shopsCount']} shops', style: const TextStyle(color: VP.muted, fontSize: 14)),
+                      Text(pts(asNum(h['totalPoints'])), style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800, height: 1.1)),
+                    ]),
+                  ),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(backgroundColor: VP.amber, foregroundColor: VP.ink, minimumSize: const Size(0, 52), padding: const EdgeInsets.symmetric(horizontal: 14)),
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyQrScreen())),
+                    icon: const Icon(Icons.qr_code_2),
+                    label: Text(context.t('my_qr')),
+                  ),
+                ]),
+                const Divider(height: 26),
+                MilestoneTiles(ms: ms),
+              ]),
+            ),
+          ),
+          Transform.translate(
+            offset: const Offset(0, -32),
+            child: Column(children: [
+              for (final p in pendingHeld.where((p) => p['status'] == 'paid'))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: WhiteCard(
+                    color: VP.greenSoft,
+                    onTap: () => showReceivedSheet(context, p).then((_) => _load(quiet: true)),
+                    child: Row(children: [
+                      const Icon(Icons.payments_outlined, color: VP.green),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text('${p['shop_name']} says they paid ${p['method'] == 'gift' ? p['gift_name'] : rupees(asNum(p['value_rupees']))}. Did you receive it?', style: const TextStyle(fontWeight: FontWeight.w600))),
+                      const Icon(Icons.chevron_right, color: VP.green),
+                    ]),
+                  ),
+                ),
+              if (offerCard != null)
+                WhiteCard(
+                  color: VP.navy,
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ShopCardScreen(shopId: offerCard['shopId'] as int))),
+                  child: Row(children: [
+                    Text('${asNum((offerCard['offer'] as Map)['multiplier'])}x', style: const TextStyle(color: Color(0xFFF2C14E), fontSize: 18, fontWeight: FontWeight.w800)),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text('${offerCard['name']} · ${(offerCard['offer'] as Map)['name']} till ${dayMonth((offerCard['offer'] as Map)['endsAt'])}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600))),
+                    const Icon(Icons.chevron_right, color: Colors.white),
+                  ]),
+                ),
+              SectionTitle(context.t('my_shop_cards'), trailing: TextButton(onPressed: widget.onFindShops, child: Text(context.t('find_shops')))),
+              if (cards.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: InfoNote('No points yet. Show My QR at any Vyapar Point shop when you buy, and your points card appears here.', icon: Icons.qr_code_2),
+                ),
+              for (final c in cards)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: WhiteCard(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ShopCardScreen(shopId: c['shopId'] as int))).then((_) => _load(quiet: true)),
+                    child: Row(children: [
+                      ShopLogo(name: '${c['name']}', url: c['logoUrl'] as String?, size: 44),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('${c['name']}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis),
+                          _CardNote(card: c),
+                        ]),
+                      ),
+                      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                        Text(pts(asNum(c['points'])), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: VP.blue)),
+                        Text('1 pt = ${rupees(asNum(c['pointValueRupees']))}', style: const TextStyle(fontSize: 11, color: VP.muted)),
+                      ]),
+                    ]),
+                  ),
+                ),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+class _CardNote extends StatelessWidget {
+  const _CardNote({required this.card});
+  final Map<String, dynamic> card;
+  @override
+  Widget build(BuildContext context) {
+    final exp = card['expiring'] as Map<String, dynamic>?;
+    if (exp != null) return Text('${pts(asNum(exp['points']))} points expire on ${dayMonth(exp['on'])}', style: const TextStyle(fontSize: 13, color: VP.red, fontWeight: FontWeight.w600));
+    if (asNum(card['onHold']) > 0) return Text('${pts(asNum(card['onHold']))} on hold for a redemption', style: const TextStyle(fontSize: 13, color: VP.amberText, fontWeight: FontWeight.w600));
+    if (card['canRedeem'] == true) {
+      final gift = card['cheapestAffordableGift'];
+      return Text(gift != null ? 'Can redeem now · gifts from ${pts(asNum(gift))} pts' : 'Can redeem now · ${rupees(asNum(card['valueRupees']))}', style: const TextStyle(fontSize: 13, color: VP.green, fontWeight: FontWeight.w600));
+    }
+    return Text('${pts(asNum(card['toRedeem']))} more to redeem', style: const TextStyle(fontSize: 13, color: VP.muted));
+  }
+}
+
+/// Three tiles from the admin-configured milestones: last crossed, NEXT (with progress), the one after.
+class MilestoneTiles extends StatelessWidget {
+  const MilestoneTiles({super.key, required this.ms});
+  final Map<String, dynamic> ms;
+
+  Color _hex(String? h) => Color(int.parse('FF${(h ?? '#9AA6B4').replaceAll('#', '')}', radix: 16));
+
+  @override
+  Widget build(BuildContext context) {
+    final tiles = (ms['tiles'] as List).cast<Map<String, dynamic>>();
+    final unit = ms['basis'] == 'rupees' ? '₹' : '';
+    String amt(dynamic v) => '$unit${pts(asNum(v))}';
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Text(context.t('my_milestones'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        const Spacer(),
+        Text('${amt(ms['earnedSoFar'])} ${ms['basis'] == 'rupees' ? 'earned' : 'pts earned'} so far', style: const TextStyle(fontSize: 12, color: VP.muted)),
+      ]),
+      const SizedBox(height: 10),
+      IntrinsicHeight(
+        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          for (var i = 0; i < tiles.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(
+              flex: tiles[i]['state'] == 'next' ? 5 : 4,
+              child: switch (tiles[i]['state']) {
+                'next' => Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: VP.blue, borderRadius: BorderRadius.circular(14), boxShadow: const [BoxShadow(color: Color(0x400F4C81), blurRadius: 12, offset: Offset(0, 4))]),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(context.t('next'), style: const TextStyle(color: Color(0xFFF2C14E), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8)),
+                      Text('${tiles[i]['name']}', style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 4),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(3),
+                        child: LinearProgressIndicator(value: asNum(tiles[i]['progress']).toDouble(), minHeight: 6, color: VP.amber, backgroundColor: Colors.white24),
+                      ),
+                      const SizedBox(height: 4),
+                      Text('${amt(tiles[i]['toGo'])} ${context.t('to_go')} · ${amt(tiles[i]['threshold'])}', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                    ]),
+                  ),
+                'crossed' => Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                    decoration: BoxDecoration(color: const Color(0xFFFFF6DB), borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFF2C14E))),
+                    child: Column(children: [
+                      CircleAvatar(radius: 17, backgroundColor: _hex(tiles[i]['color'] as String?), child: const Icon(Icons.check, color: Colors.white, size: 18)),
+                      const SizedBox(height: 4),
+                      Text('${tiles[i]['name']}', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF6B4A00))),
+                      Text('${amt(tiles[i]['threshold'])} · ${context.t('crossed')}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, color: Color(0xFF6B4A00))),
+                    ]),
+                  ),
+                _ => Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                    decoration: BoxDecoration(color: VP.ground, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFCBD3DC))),
+                    child: Column(children: [
+                      const CircleAvatar(radius: 17, backgroundColor: Color(0xFFE6EAF0), child: Icon(Icons.lock_outline, color: VP.muted, size: 16)),
+                      const SizedBox(height: 4),
+                      Text('${tiles[i]['name']}', style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF3C4856))),
+                      Text(amt(tiles[i]['threshold']), style: const TextStyle(fontSize: 11, color: VP.muted)),
+                    ]),
+                  ),
+              },
+            ),
+          ],
+        ]),
+      ),
+    ]);
+  }
+}

@@ -23,7 +23,7 @@ export class ShopRegisterController {
 
   @Public() @Get('categories')
   categories() {
-    return this.db.many('SELECT code, name FROM categories ORDER BY sort');
+    return this.db.many('SELECT code, name FROM categories WHERE active ORDER BY sort');
   }
 }
 
@@ -40,7 +40,7 @@ export class ShopController {
   async profile(@CurrentShop() s: ShopCtx) {
     const p = await this.shops.profile(s.id);
     const cfg = await this.shops.getConfig(s.id);
-    return { ...p, me: { role: s.role, canAddPoints: s.canAddPoints, canRedeem: s.canRedeem, canManual: s.canManual }, loyalty: ShopService.presentConfig(cfg) };
+    return { ...p, me: { role: s.role, canAddPoints: s.canAddPoints, canRedeem: s.canRedeem, canManual: s.canManual }, billing: s.billing, loyalty: ShopService.presentConfig(cfg) };
   }
 
   @ShopRoute({ owner: true, allowPending: true }) @Patch()
@@ -86,7 +86,7 @@ export class ShopController {
     return this.points.resolveCustomer(s.id, parse(z.object({ qr: z.string().optional(), mobile: z.string().optional() }), body));
   }
 
-  @ShopRoute({ perm: 'canAddPoints' }) @Post('customers')
+  @ShopRoute({ perm: 'canAddPoints', writes: true }) @Post('customers')
   quickAdd(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Body() body: unknown) {
     return this.points.quickAddCustomer(s.id, u.id, parse(z.object({
       mobile: z.string(), name: z.string().min(2), profession: z.enum(professions).optional(), upiId: z.string().optional(), city: z.string().optional(),
@@ -103,8 +103,15 @@ export class ShopController {
     return this.reports.customerDetail(s.id, Number(id));
   }
 
+  /** Owner can stop a customer from earning or redeeming at this shop (e.g. suspected misuse). */
+  @ShopRoute({ owner: true }) @Post('customers/:id/block')
+  block(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Param('id') id: string, @Body() body: unknown) {
+    const b = parse(z.object({ blocked: z.boolean(), reason: z.string().max(200).optional() }), body);
+    return this.shops.setCustomerBlocked(s.id, u.id, Number(id), b.blocked, b.reason);
+  }
+
   // ---------------------------------------------------------------- earn & reverse
-  @ShopRoute({ perm: 'canAddPoints' }) @Post('points/bill')
+  @ShopRoute({ perm: 'canAddPoints', writes: true }) @Post('points/bill')
   earnBill(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Body() body: unknown, @Headers('idempotency-key') key?: string) {
     return this.points.earnBill(s, u.id, parse(z.object({
       customerId: z.number().int().positive(), amountRupees: z.number().positive().max(10_000_000),
@@ -112,7 +119,7 @@ export class ShopController {
     }), body), key);
   }
 
-  @ShopRoute({ perm: 'canManual' }) @Post('points/manual')
+  @ShopRoute({ perm: 'canManual', writes: true }) @Post('points/manual')
   earnManual(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Body() body: unknown, @Headers('idempotency-key') key?: string) {
     return this.points.earnManual(s, u.id, parse(z.object({
       customerId: z.number().int().positive(), points: z.number().int().positive().max(100_000),
@@ -174,7 +181,7 @@ export class ShopController {
   @ShopRoute() @Get('offers')
   listOffers(@CurrentShop() s: ShopCtx) { return this.offers.listOffers(s.id); }
 
-  @ShopRoute({ owner: true }) @Post('offers')
+  @ShopRoute({ owner: true, writes: true }) @Post('offers')
   createOffer(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Body() body: unknown) {
     return this.offers.createOffer(s.id, u.id, parse(z.object({
       name: z.string().min(2).max(60), multiplier: z.number(), startsAt: z.string().datetime({ offset: true }), endsAt: z.string().datetime({ offset: true }),
@@ -203,7 +210,7 @@ export class ShopController {
     return { count: await this.offers.countSegment(s.id, seg ?? 'all') };
   }
 
-  @ShopRoute({ owner: true }) @Post('messages')
+  @ShopRoute({ owner: true, writes: true }) @Post('messages')
   sendMessage(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Body() body: unknown) {
     const b = parse(z.object({ segment: z.string(), text: z.string().min(5).max(130) }), body);
     return this.offers.sendMessage(s.id, u.id, b.segment as Segment, b.text);

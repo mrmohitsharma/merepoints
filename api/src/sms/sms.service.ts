@@ -11,6 +11,13 @@ export const SMS = {
     `Got Rs ${rupees} from ${shop} for ${pts} pts? Tap Received in app or tell them code ${code}. -Vyapar Point`,
   redeemDone: (shop: string, pts: number, rupees: string, ref: string) =>
     `${shop}: ${pts} pts redeemed for Rs ${rupees}. Ref ${ref}. -Vyapar Point`,
+  shopApproved: (shop: string, days: number) =>
+    `${shop} is live on Vyapar Point. Free trial for ${days} days. Start adding points to your customers now. -Vyapar Point`,
+  shopReactivated: (shop: string) => `${shop} is active again on Vyapar Point. You can add points and pay out as usual. -Vyapar Point`,
+  shopRejected: () => `Your Vyapar Point shop registration needs changes. Open the app to see the reason. -Vyapar Point`,
+  shopSuspended: () => `Your Vyapar Point shop is suspended. Open the app or call support to know more. -Vyapar Point`,
+  planDue: (shop: string, date: string) =>
+    `${shop}: your Vyapar Point plan has ended. Renew by ${date} to keep adding points. -Vyapar Point`,
   invite: (shop: string, pts: number) =>
     `${shop} gave you ${pts} points on Vyapar Point. Get the app to see and use them: vyp.in/app -Vyapar Point`,
 };

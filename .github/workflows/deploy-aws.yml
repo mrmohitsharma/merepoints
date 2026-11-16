@@ -1,0 +1,49 @@
+name: Deploy to AWS
+
+# Run from the Actions tab once the AWS setup in DEPLOY-AWS.md is done.
+on:
+  workflow_dispatch:
+    inputs:
+      what: { description: 'api, web or both', default: 'both', required: true }
+
+permissions: { id-token: write, contents: read }
+
+env:
+  AWS_REGION: ap-south-1
+
+jobs:
+  api:
+    if: inputs.what != 'web'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with: { role-to-assume: '${{ vars.AWS_DEPLOY_ROLE_ARN }}', aws-region: '${{ env.AWS_REGION }}' }
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and push image
+        run: |
+          IMAGE=${{ steps.ecr.outputs.registry }}/vyapar-api
+          docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest api
+          docker push --all-tags $IMAGE
+      - name: Roll out on App Runner
+        run: aws apprunner start-deployment --service-arn "${{ vars.APPRUNNER_SERVICE_ARN }}"
+
+  web:
+    if: inputs.what != 'api'
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: web } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: web/package-lock.json }
+      - run: npm ci
+      - run: npx next build
+        env: { NEXT_PUBLIC_API_URL: '${{ vars.PUBLIC_API_URL }}', NEXT_TELEMETRY_DISABLED: '1' }
+      - uses: aws-actions/configure-aws-credentials@v4
+        with: { role-to-assume: '${{ vars.AWS_DEPLOY_ROLE_ARN }}', aws-region: '${{ env.AWS_REGION }}' }
+      - name: Upload to S3 and refresh CloudFront
+        run: |
+          aws s3 sync out "s3://${{ vars.WEB_BUCKET }}" --delete --cache-control "public,max-age=300"
+          aws s3 cp out/_next "s3://${{ vars.WEB_BUCKET }}/_next" --recursive --cache-control "public,max-age=31536000,immutable"
+          aws cloudfront create-invalidation --distribution-id "${{ vars.CLOUDFRONT_ID }}" --paths "/*"

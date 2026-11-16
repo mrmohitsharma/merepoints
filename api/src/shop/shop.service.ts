@@ -4,6 +4,7 @@ import { Db, Q } from '../db/db.service';
 import { E } from '../common/errors';
 import { config } from '../config';
 import { normalizeMobile, toPaise } from '../common/util';
+import { BillingService } from '../billing/billing.service';
 
 export const LoyaltyConfigInput = z.object({
   enabled: z.boolean().default(true),
@@ -44,7 +45,7 @@ export const RegisterShopInput = z.object({
 
 @Injectable()
 export class ShopService {
-  constructor(private db: Db) {}
+  constructor(private db: Db, private billing: BillingService) {}
 
   async register(userId: number, input: z.infer<typeof RegisterShopInput>) {
     if (input.location.accuracyM > config.maxGpsAccuracyM) {
@@ -149,6 +150,15 @@ export class ShopService {
     });
   }
 
+  async setCustomerBlocked(shopId: number, ownerId: number, customerId: number, blocked: boolean, reason?: string) {
+    return this.db.tx(async (c) => {
+      const r = (await c.query('UPDATE wallets SET blocked = $3 WHERE shop_id = $1 AND customer_id = $2 RETURNING blocked', [shopId, customerId, blocked])).rows[0];
+      if (!r) throw E.notFound('Customer at your shop');
+      await this.audit(c, ownerId, shopId, blocked ? 'customer.block' : 'customer.unblock', 'user', customerId, { reason });
+      return { blocked: r.blocked };
+    });
+  }
+
   // ------------------------------------------------------------ staff
   async addStaff(shopId: number, ownerId: number, s: { mobile: string; name: string; canRedeem?: boolean; canManual?: boolean; manualDailyLimit?: number }) {
     const mobile = normalizeMobile(s.mobile);
@@ -157,6 +167,7 @@ export class ShopService {
         `INSERT INTO users (mobile, name) VALUES ($1,$2) ON CONFLICT (mobile) DO UPDATE SET name = COALESCE(users.name, EXCLUDED.name) RETURNING id`,
         [mobile, s.name],
       )).rows[0];
+      await this.billing.assertStaffSlot(c, shopId, u.id);
       await c.query(
         `INSERT INTO shop_members (shop_id, user_id, role, can_add_points, can_redeem, can_manual, manual_daily_limit)
          VALUES ($1,$2,'staff',TRUE,$3,$4,$5)
@@ -195,10 +206,13 @@ export class ShopService {
     );
   }
 
-  async audit(q: Q, actor: number | null, shopId: number | null, action: string, entity: string, entityId: unknown, details: unknown) {
+  /** actor: an app user id, or { admin: id } for the Super Admin team, or null for system jobs. */
+  async audit(q: Q, actor: number | { admin: number } | null, shopId: number | null, action: string, entity: string, entityId: unknown, details: unknown) {
+    const userId = typeof actor === 'number' ? actor : null;
+    const adminId = actor && typeof actor === 'object' ? actor.admin : null;
     await q.query(
-      'INSERT INTO audit_log (actor_id, shop_id, action, entity, entity_id, details) VALUES ($1,$2,$3,$4,$5,$6)',
-      [actor, shopId, action, entity, entityId == null ? null : String(entityId), details == null ? null : JSON.stringify(details)],
+      'INSERT INTO audit_log (actor_id, admin_id, shop_id, action, entity, entity_id, details) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [userId, adminId, shopId, action, entity, entityId == null ? null : String(entityId), details == null ? null : JSON.stringify(details)],
     );
   }
 }

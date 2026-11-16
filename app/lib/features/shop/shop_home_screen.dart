@@ -45,7 +45,20 @@ class ShopHomeScreen extends StatelessWidget {
             final dash = d['dash'] as Map<String, dynamic>?;
             final offer = d['offer'] as Map<String, dynamic>?;
             final open = d['open'] as List<Map<String, dynamic>>;
+            final billing = shop['billing'] as String?;
             return ListView(padding: const EdgeInsets.only(bottom: 100), children: [
+              if (billing == 'grace' || billing == 'read_only')
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: InfoNote(
+                    billing == 'read_only'
+                        ? 'Your Vyapar Point plan has expired. Adding points and SMS are paused; payouts still work. Renew in Plan & billing on the web dashboard.'
+                        : 'Your Vyapar Point plan payment is due. Renew in Plan & billing on the web dashboard to keep adding points.',
+                    icon: Icons.warning_amber_rounded,
+                    color: billing == 'read_only' ? VP.red : const Color(0xFF9A6400),
+                    bg: billing == 'read_only' ? const Color(0xFFFDECEC) : const Color(0xFFFEF5E1),
+                  ),
+                ),
               Container(
                 color: Colors.white,
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),

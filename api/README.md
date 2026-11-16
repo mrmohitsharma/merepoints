@@ -114,3 +114,13 @@ Errors are always `{ code, message }` with stable codes (`DUPLICATE_INVOICE`, `O
 - **File uploads** (logo, bill photo, gift photo) to S3/GCS: API accepts URLs.
 - **Scheduler**: run `admin/jobs/expire-points` nightly, `escalate-redemptions` hourly and `send-sms` every few seconds (or a worker loop).
 - **Rate limiting** at the gateway (OTP is already capped at 5/hour/number in the DB).
+
+## Admin, billing and jobs (v1.1)
+
+- **Super Admin login** is username + password (`/v1/admin/auth/login`), separate from OTP app logins. Roles `owner`, `ops`, `support`. 5 wrong passwords lock for 15 minutes. Changing or resetting a password, or deactivating an admin, ends their sessions.
+  First owner: set `ADMIN_BOOTSTRAP_USERNAME/NAME/PASSWORD` on first start, or `ADMIN_PASSWORD=... npm run create-admin -- mohit "Mohit Sharma" owner`.
+- **Billing**: plans + SMS packs (`migrations/002_admin_billing.sql`, prices editable in admin). Approval starts a free trial. State is computed from dates: `trial`/`active` → `grace` (7 days, reminders) → `read_only` (no new points, customers, offers or SMS; **payouts still work**). Razorpay orders, signature check and webhook; exactly-once payment apply. Test mode without keys (development only).
+- **Staff limit** follows the plan.
+- **Background jobs** run in the API with Postgres advisory locks (safe with several servers): SMS sending, payout escalation, points expiry, plan reminders. `RUN_JOBS=true|false`, on by default in production.
+- **Demo data**: `npm run seed` (API running in development).
+- Tests: 45 (`npm test`).

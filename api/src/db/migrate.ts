@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'fs';
+import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { Client } from 'pg';
 import { config } from '../config';
@@ -11,8 +11,12 @@ export async function migrate(databaseUrl = config.databaseUrl, opts: { reset?: 
     if (opts.reset) {
       await c.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
     }
+    // Two servers starting together: the second waits, then finds nothing left to apply.
+    await c.query('SELECT pg_advisory_lock(hashtext($1))', ['vyapar:migrate']);
     await c.query(`CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
-    const dir = join(__dirname, '..', '..', 'migrations');
+    // src/db (ts-node) or dist/src/db (compiled): find the migrations folder either way.
+    const dir = [join(__dirname, '..', '..', 'migrations'), join(__dirname, '..', '..', '..', 'migrations')].find((d) => existsSync(d));
+    if (!dir) throw new Error('migrations folder not found');
     const files = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
     const done = new Set((await c.query('SELECT name FROM schema_migrations')).rows.map((r) => r.name));
     for (const f of files) {

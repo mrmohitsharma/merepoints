@@ -1,0 +1,27 @@
+# Run the whole platform on one computer:  docker compose up --build
+#   Web (shop + admin):  http://localhost:3001     API: http://localhost:3000/v1
+#   Admin login: mohit / Vyapar-admin-2026   (then: docker compose exec api node dist/src/db/seed.js for demo data)
+services:
+  db:
+    image: postgres:16
+    environment: { POSTGRES_USER: vyapar, POSTGRES_PASSWORD: vyapar, POSTGRES_DB: vyapar }
+    volumes: [dbdata:/var/lib/postgresql/data]
+    ports: ['5432:5432']
+    healthcheck: { test: ['CMD-SHELL', 'pg_isready -U vyapar'], interval: 3s, retries: 20 }
+  api:
+    build: ./api
+    environment:
+      DATABASE_URL: postgres://vyapar:vyapar@db:5432/vyapar
+      NODE_ENV: development
+      OTP_DEV_ECHO: 'true'
+      RUN_JOBS: 'true'
+      PORT: '3000'
+      ADMIN_BOOTSTRAP_USERNAME: mohit
+      ADMIN_BOOTSTRAP_NAME: Mohit Sharma
+      ADMIN_BOOTSTRAP_PASSWORD: Vyapar-admin-2026
+    ports: ['3000:3000']
+    depends_on: { db: { condition: service_healthy } }
+  web:
+    build: { context: ./web, args: { NEXT_PUBLIC_API_URL: 'http://localhost:3000/v1' } }
+    ports: ['3001:80']
+volumes: { dbdata: {} }

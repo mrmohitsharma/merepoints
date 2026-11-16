@@ -1,6 +1,6 @@
 import { assertLedgerInvariants, auth, bill, boot, http, login, makeAdmin, makeCustomer, makeShop, pg, shopBody, shutdown, wallet } from './helpers';
 
-let admin: { token: string; userId: number };
+let admin: { token: string };
 
 beforeAll(async () => {
   await boot();

@@ -4,6 +4,8 @@ import { config } from '../config';
 
 // BIGINT -> number. All our ids/points/paise stay far below 2^53.
 types.setTypeParser(20, (v) => Number(v));
+// NUMERIC (rupee sums, averages) -> number. Values are money in rupees, well within double precision.
+types.setTypeParser(1700, (v) => Number(v));
 // DATE -> plain 'YYYY-MM-DD' string (no timezone shifting).
 types.setTypeParser(1082, (v) => v);
 

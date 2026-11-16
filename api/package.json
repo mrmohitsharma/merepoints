@@ -9,6 +9,7 @@
     "dev": "ts-node src/main.ts",
     "migrate": "ts-node src/db/migrate.ts",
     "seed": "ts-node src/db/seed.ts",
+    "create-admin": "ts-node src/db/create-admin.ts",
     "test": "jest --runInBand"
   },
   "keywords": [],

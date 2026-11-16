@@ -14,4 +14,12 @@ export const config = {
   otpMaxPerHour: 5,
   otpMaxAttempts: 5,
   maxGpsAccuracyM: 100,
+  /** Leave empty to run billing in test mode (no real money). */
+  razorpay: {
+    keyId: process.env.RAZORPAY_KEY_ID ?? '',
+    keySecret: process.env.RAZORPAY_KEY_SECRET ?? '',
+    webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET ?? '',
+  },
+  /** Web app origins allowed to call the API (comma separated). Empty = allow all (dev). */
+  corsOrigins: (process.env.CORS_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
 };

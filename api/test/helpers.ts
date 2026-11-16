@@ -37,10 +37,18 @@ export const auth = (token: string, shopId?: number) => ({
   ...(shopId ? { 'X-Shop-Id': String(shopId) } : {}),
 });
 
-export async function makeAdmin() {
-  const a = await login();
-  await pg.query('UPDATE users SET is_super_admin = TRUE WHERE id = $1', [a.userId]);
-  return a;
+let adminSeq = 0;
+/** Creates a Super Admin team member (username + password) and logs in. */
+export async function makeAdmin(role: 'owner' | 'ops' | 'support' = 'owner') {
+  const { hashPassword } = await import('../src/common/password');
+  const username = `admin${++adminSeq}_${role}`;
+  const password = 'Strong-pass-123';
+  await pg.query(
+    `INSERT INTO admin_users (username, name, password_hash, role, must_change_password) VALUES ($1,$2,$3,$4,FALSE)`,
+    [username, `Test ${role}`, await hashPassword(password), role],
+  );
+  const r = await http().post('/v1/admin/auth/login').send({ username, password }).expect(201);
+  return { token: r.body.token as string, username, password, id: r.body.admin.id as number };
 }
 
 export const shopBody = (over: Record<string, any> = {}) => ({

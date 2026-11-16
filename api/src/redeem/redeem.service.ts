@@ -186,12 +186,12 @@ export class RedeemService {
     return this.db.tx(async (c) => {
       const { r, w } = await this.lockRedemption(c, 'public_id = $1', [rid]);
       if (!['held', 'paid', 'disputed'].includes(r.status)) throw E.conflict('BAD_STATE', `Redemption is already ${r.status}`);
-      await this.shops.audit(c, adminId, r.shop_id, `redemption.admin_${action}`, 'redemption', rid, { note });
-      return action === 'confirm' ? this.finalize(c, r, w, 'admin') : this.release(c, r, w, adminId, `Admin: ${note}`);
+      await this.shops.audit(c, { admin: adminId }, r.shop_id, `redemption.admin_${action}`, 'redemption', rid, { note });
+      return action === 'confirm' ? this.finalize(c, r, w, 'admin') : this.release(c, r, w, null, `Vyapar Point support: ${note}`);
     });
   }
 
-  private async release(c: PoolClient, r: any, w: any, actorId: number, reason: string) {
+  private async release(c: PoolClient, r: any, w: any, actorId: number | null, reason: string) {
     const lots = (await c.query('SELECT lot_id, points FROM redemption_lots WHERE redemption_id = $1 ORDER BY lot_id', [r.id])).rows;
     for (const l of lots) await c.query('UPDATE point_lots SET points_remaining = points_remaining + $2 WHERE id = $1', [l.lot_id, l.points]);
     const balanceAfter = w.balance_points + r.points;

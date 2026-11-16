@@ -18,16 +18,21 @@ import { CustomerService } from './customer/customer.service';
 import { MilestoneService } from './customer/milestone.service';
 import { CustomerController, DiscoverController } from './customer/customer.controller';
 import { AdminService } from './admin/admin.service';
-import { AdminController } from './admin/admin.controller';
+import { AdminAuthController, AdminController } from './admin/admin.controller';
+import { AdminAuthService } from './admin/admin-auth.service';
+import { BillingService } from './billing/billing.service';
+import { BillingWebhookController, ShopBillingController } from './billing/billing.controller';
 import { ExpiryService } from './jobs/expiry.service';
+import { SchedulerService } from './jobs/scheduler.service';
 import { HealthController } from './health.controller';
 
 @Module({
   imports: [JwtModule.register({ global: true, secret: config.jwtSecret, signOptions: { expiresIn: config.jwtTtl } })],
-  controllers: [HealthController, AuthController, ShopRegisterController, ShopController, CustomerController, DiscoverController, AdminController],
+  controllers: [HealthController, AuthController, ShopRegisterController, ShopController, CustomerController, DiscoverController,
+    AdminAuthController, AdminController, ShopBillingController, BillingWebhookController],
   providers: [
     Db, SmsService, AuthService, ShopService, PointsService, RedeemService, OffersService, ReportsService,
-    CustomerService, MilestoneService, AdminService, ExpiryService,
+    CustomerService, MilestoneService, AdminService, AdminAuthService, BillingService, ExpiryService, SchedulerService,
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: AllErrorsFilter },
   ],

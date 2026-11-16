@@ -13,3 +13,8 @@ app/ios/
 *.iml
 .idea/
 .DS_Store
+web/node_modules/
+web/.next/
+web/out/
+web/.env.local
+web/tsconfig.tsbuildinfo

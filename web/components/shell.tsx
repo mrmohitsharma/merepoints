@@ -81,7 +81,7 @@ export function AuthLayout({ title, sub, children }: { title: string; sub: strin
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/logo-light.png" alt="Mere Points" className="h-12 w-auto self-start" />
         <div>
-          <p className="text-3xl font-bold leading-snug text-white">Loyalty that brings<br />your karigars back.</p>
+          <p className="text-3xl font-bold leading-snug text-white">Loyalty that brings<br />your Site Experts back.</p>
           <p className="mt-3 max-w-md text-white/70">Points on every bill, paid out at your counter. Built for building-material shops and the carpenters, painters and contractors who buy there.</p>
         </div>
         <p className="text-xs text-white/40">© Mere Points</p>

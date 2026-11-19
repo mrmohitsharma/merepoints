@@ -28,23 +28,23 @@ export function Pricing() {
         {d.plans.map((p, i) => {
           const featured = i === 1;
           return (
-            <div key={p.code} className={`relative flex flex-col rounded-2xl border p-6 ${featured ? 'border-brand bg-white shadow-xl shadow-brand/10' : 'border-line bg-white'}`}>
-              {featured && <span className="absolute -top-3 left-6 rounded-full bg-amber px-3 py-0.5 text-xs font-bold text-navy">Most shops pick this</span>}
+            <div key={p.code} className={`relative flex flex-col rounded-2xl border p-6 ${featured ? 'border-forest bg-white shadow-2xl shadow-forest/15 md:-translate-y-3' : 'border-forest/15 bg-cream'}`}>
+              {featured && <span className="absolute -top-3 left-6 rounded-full bg-haldi px-3 py-0.5 text-xs font-extrabold text-forest-dark">Sabse popular</span>}
               <p className="text-lg font-bold">{p.name}</p>
-              <p className="mt-3"><span className="text-4xl font-extrabold tracking-tight">{inr(p.price_rupees)}</span><span className="text-muted"> / month</span></p>
-              <p className="mt-1 text-sm text-muted">+ GST · cancel any time</p>
+              <p className="mt-3"><span className="text-4xl font-extrabold tracking-tight">{inr(p.price_rupees)}</span><span className="text-soil/60"> / mahina</span></p>
+              <p className="mt-1 text-sm text-muted">+ GST · kabhi bhi band karein</p>
               <ul className="mt-5 flex-1 space-y-2.5 text-[15px]">
-                {p.features.map((f) => <li key={f} className="flex gap-2"><Check size={18} className="mt-0.5 shrink-0 text-ok" /> {f}</li>)}
-                <li className="flex gap-2"><Check size={18} className="mt-0.5 shrink-0 text-ok" /> Unlimited customers and bills</li>
+                {p.features.map((f) => <li key={f} className="flex gap-2"><Check size={18} className="mt-0.5 shrink-0 text-forest" /> {f}</li>)}
+                <li className="flex gap-2"><Check size={18} className="mt-0.5 shrink-0 text-forest" /> Unlimited customers aur bills</li>
               </ul>
-              <Link href="/get-started/" className={`mt-6 inline-flex h-11 items-center justify-center rounded-lg font-semibold ${featured ? 'bg-brand text-white hover:bg-brand-dark' : 'border border-line hover:bg-page'}`}>
-                Start {d.trialDays}-day free trial
+              <Link href="/get-started/" className={`mt-6 inline-flex h-11 items-center justify-center rounded-lg font-semibold ${featured ? 'bg-forest text-white hover:bg-forest-dark' : 'border border-forest/25 bg-white text-forest hover:border-forest'}`}>
+                {d.trialDays} din free shuru karein
               </Link>
             </div>
           );
         })}
       </div>
-      <p className="mt-6 text-center text-[15px] text-muted">{d.trialDays} days free from approval, no card needed. Customers always use the app free.</p>
+      <p className="mt-8 text-center text-[15px] text-soil/60">Approval ke din se {d.trialDays} din free, card ki zaroorat nahi. Site Experts ke liye app hamesha free.</p>
     </>
   );
 }

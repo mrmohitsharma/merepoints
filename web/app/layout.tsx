@@ -4,9 +4,9 @@ import { ToastProvider } from '@/components/ui';
 
 export const metadata: Metadata = {
   title: 'Mere Points',
-  description: 'Loyalty points for building-material shops and their karigars',
+  description: 'Loyalty points for building-material shops and their Site Experts',
   metadataBase: new URL('https://merepoints.in'),
-  openGraph: { title: 'Mere Points', description: 'Loyalty points for building-material shops and their karigars', images: ['/brand/icon-512.png'] },
+  openGraph: { title: 'Mere Points', description: 'Loyalty points for building-material shops and their Site Experts', images: ['/brand/icon-512.png'] },
   manifest: '/manifest.webmanifest',
 };
 export const viewport = { themeColor: '#F4AA04' };

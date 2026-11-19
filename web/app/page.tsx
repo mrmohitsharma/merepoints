@@ -8,7 +8,8 @@ import {
 import { SiteFooter, SiteHeader } from '@/components/site';
 import { Pricing } from '@/components/site-pricing';
 import { AudienceTabs, CountUp, PointsCalculator, Reveal } from '@/components/site-motion';
-import { ArtIncome, ArtRespect, ArtShopGrowth, HeroScene, Rangoli } from '@/components/site-art';
+import { CardIncome, CardRespect, CardShop, Rangoli } from '@/components/site-art';
+import { HeroFlow } from '@/components/site-hero';
 
 export const metadata: Metadata = {
   title: 'Mere Points: Har bill pe points, har Site Expert ki kadar',
@@ -103,7 +104,7 @@ export default function Home() {
               <span className="flex items-center gap-1.5"><Check size={16} className="text-forest" /> Hindi + English</span>
             </Reveal>
           </div>
-          <Reveal delay={150} dir="r"><HeroScene className="mx-auto w-full max-w-[560px] drop-shadow-xl" /></Reveal>
+          <Reveal delay={150} dir="r"><HeroFlow /></Reveal>
         </div>
 
         {/* trades marquee */}
@@ -126,9 +127,9 @@ export default function Home() {
       <Section id="community" tone="white" eyebrow="Community ke saath, community ke liye" title={<>Hum aapki community ko <span className="text-forest">aage badhate</span> hain</>} sub="Building-material ka kaam rishton pe chalta hai: dukaandaar aur uske Site Experts. Mere Points us rishte ko mazboot karta hai.">
         <div className="grid gap-6 md:grid-cols-3">
           {[
-            [<ArtIncome key="a" />, 'Extra kamaai', 'Site Experts ke liye', 'Jo maal aap client ke liye kharidte ho, uspe har bill pe points. Points usi dukaan pe cash, UPI ya gift mein. Jitna zyada kaam, utni zyada kamaai.'],
-            [<ArtRespect key="b" />, 'Izzat aur pehchaan', 'Site Experts ke liye', 'Silver, Gold, Platinum: kharidari ke saath level badhta hai, har level pe naye fayde. Dukaan ko pata hai kaun uska sabse bharosemand Site Expert hai.'],
-            [<ArtShopGrowth key="c" />, 'Local dukaan, badhta vyapar', 'Dukaan ke liye', 'Bade chains aur online se muqabla, apne regular customers ke dum pe. Wohi Site Experts baar baar aate hain, bill bade hote hain, aur sab record app mein.'],
+            [<CardIncome key="a" />, 'Extra kamaai', 'Site Experts ke liye', 'Jo maal aap client ke liye kharidte ho, uspe har bill pe points. Points usi dukaan pe cash, UPI ya gift mein. Jitna zyada kaam, utni zyada kamaai.'],
+            [<CardRespect key="b" />, 'Izzat aur pehchaan', 'Site Experts ke liye', 'Silver, Gold, Platinum: kharidari ke saath level badhta hai, har level pe naye fayde. Dukaan ko pata hai kaun uska sabse bharosemand Site Expert hai.'],
+            [<CardShop key="c" />, 'Local dukaan, badhta vyapar', 'Dukaan ke liye', 'Bade chains aur online se muqabla, apne regular customers ke dum pe. Wohi Site Experts baar baar aate hain, bill bade hote hain, aur sab record app mein.'],
           ].map(([art, t, who, s], i) => (
             <Reveal key={t as string} delay={i * 140} className="flex flex-col rounded-3xl bg-cream p-7 ring-1 ring-forest/10">
               {art}

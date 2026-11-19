@@ -86,3 +86,13 @@ html { scroll-behavior: smooth; }
   .draw { stroke-dashoffset: 0; }
   html { scroll-behavior: auto; }
 }
+/* app-card entry animations (inside .reveal) */
+.slide-in { opacity: 0; transform: translateX(-18px); transition: opacity .5s ease, transform .5s ease; transition-delay: var(--d, 0ms); }
+.in .slide-in { opacity: 1; transform: none; }
+.pop-in { transform: scale(.4); opacity: 0; transition: transform .5s cubic-bezier(.3,1.6,.5,1), opacity .3s; transition-delay: var(--d, 0ms); }
+.in .pop-in { transform: none; opacity: 1; }
+.grow-w { width: 0; transition: width 1.4s cubic-bezier(.2,.7,.2,1) .3s; }
+.in .grow-w { width: var(--w); }
+.grow-h { height: 6%; transition: height 1s cubic-bezier(.2,.7,.2,1); transition-delay: var(--d, 0ms); }
+.in .grow-h { height: var(--h); }
+@media (prefers-reduced-motion: reduce) { .slide-in, .pop-in { opacity: 1; transform: none; } .grow-w { width: var(--w); } .grow-h { height: var(--h); } }

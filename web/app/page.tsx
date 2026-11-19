@@ -12,7 +12,7 @@ import { CardIncome, CardRespect, CardShop, Rangoli } from '@/components/site-ar
 import { HeroFlow } from '@/components/site-hero';
 
 export const metadata: Metadata = {
-  title: 'Mere Points: Har bill pe points, har Site Expert ki kadar',
+  title: 'Mere Points: Har bill pe points, har Site Expert ki respect',
   description: 'Loyalty points for building-material shops and the carpenters, painters, contractors and Site Experts who buy there. Points on every bill, redeemed at the same dukaan. 30 days free.',
 };
 
@@ -85,7 +85,7 @@ export default function Home() {
             </Reveal>
             <Reveal delay={100}>
               <h1 className="mt-5 text-[40px] font-black leading-[1.05] tracking-tight text-soil md:text-[64px]">
-                Har bill pe points.<br /><span className="text-forest">Har Site Expert</span> ki <span className="mp-shine">kadar.</span>
+                Har bill pe points.<br /><span className="text-forest">Har Site Expert</span> ki <span className="mp-shine">respect.</span>
               </h1>
             </Reveal>
             <Reveal delay={200}>

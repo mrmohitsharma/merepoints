@@ -79,17 +79,7 @@ class _Splash extends StatelessWidget {
   const _Splash();
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: VP.blue,
-        body: Center(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(
-              width: 72, height: 72, alignment: Alignment.center,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)),
-              child: const Text('M', style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: VP.blue)),
-            ),
-            const SizedBox(height: 16),
-            const Text('Mere Points', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
-          ]),
-        ),
+        backgroundColor: Colors.white,
+        body: Center(child: Image.asset('assets/brand/logo.png', width: 230, semanticLabel: 'Mere Points')),
       );
 }

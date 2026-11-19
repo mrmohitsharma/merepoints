@@ -8,6 +8,8 @@ flutter --version
 flutter create --platforms=android,ios --org in.merepoints --project-name mere_points .
 dart run tool/configure_platforms.dart
 flutter pub get
+dart run flutter_launcher_icons
+dart run flutter_native_splash:create
 flutter analyze
 flutter test
 

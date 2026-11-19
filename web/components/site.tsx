@@ -4,9 +4,10 @@ import { COMPANY } from '@/lib/company';
 
 export function Logo({ light = false }: { light?: boolean }) {
   return (
-    <Link href="/" className="flex items-center gap-2.5">
-      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber text-lg font-black text-navy">M</span>
-      <span className={`text-lg font-bold tracking-tight ${light ? 'text-white' : 'text-ink'}`}>{COMPANY.brand}</span>
+    <Link href="/" className="flex items-center" aria-label={`${COMPANY.brand} home`}>
+      {/* Logo files: public/brand/logo.png (light backgrounds), logo-light.png (dark backgrounds) */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={light ? '/brand/logo-light.png' : '/brand/logo.png'} alt={COMPANY.brand} width={160} height={38} className="h-9 w-auto md:h-10" />
     </Link>
   );
 }

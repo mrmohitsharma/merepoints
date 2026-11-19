@@ -44,13 +44,8 @@ class _LoginScreenState extends State<LoginScreen> {
           padding: EdgeInsets.fromLTRB(24, MediaQuery.of(context).padding.top + 48, 24, 32),
           decoration: const BoxDecoration(color: VP.blue, borderRadius: BorderRadius.vertical(bottom: Radius.circular(28))),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(
-              width: 60, height: 60, alignment: Alignment.center,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
-              child: const Text('M', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: VP.blue)),
-            ),
+            Image.asset('assets/brand/logo-light.png', height: 56, semanticLabel: 'Mere Points'),
             const SizedBox(height: 14),
-            const Text('Mere Points', style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w800)),
             const Text('Shops reward their regular customers.\nCustomers collect points everywhere.', style: TextStyle(color: Colors.white, fontSize: 16, height: 1.35)),
           ]),
         ),

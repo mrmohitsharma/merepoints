@@ -5,7 +5,11 @@ import { ToastProvider } from '@/components/ui';
 export const metadata: Metadata = {
   title: 'Mere Points',
   description: 'Loyalty points for building-material shops and their karigars',
+  metadataBase: new URL('https://merepoints.in'),
+  openGraph: { title: 'Mere Points', description: 'Loyalty points for building-material shops and their karigars', images: ['/brand/icon-512.png'] },
+  manifest: '/manifest.webmanifest',
 };
+export const viewport = { themeColor: '#F4AA04' };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

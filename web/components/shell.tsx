@@ -13,7 +13,8 @@ export type NavItem = { href: string; label: string; icon: LucideIcon; badge?: n
 export function Logo({ sub }: { sub?: string }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber text-lg font-black text-navy">M</span>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/brand/icon-192.png" alt="" width={36} height={36} className="h-9 w-9 rounded-lg" />
       <span className="leading-tight">
         <span className="block font-bold text-white">Mere Points</span>
         {sub && <span className="block text-xs text-white/60">{sub}</span>}
@@ -77,7 +78,8 @@ export function AuthLayout({ title, sub, children }: { title: string; sub: strin
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
       <div className="hidden flex-col justify-between bg-navy p-12 lg:flex">
-        <Logo />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/logo-light.png" alt="Mere Points" className="h-12 w-auto self-start" />
         <div>
           <p className="text-3xl font-bold leading-snug text-white">Loyalty that brings<br />your karigars back.</p>
           <p className="mt-3 max-w-md text-white/70">Points on every bill, paid out at your counter. Built for building-material shops and the carpenters, painters and contractors who buy there.</p>
@@ -86,7 +88,7 @@ export function AuthLayout({ title, sub, children }: { title: string; sub: strin
       </div>
       <div className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
-          <div className="mb-8 lg:hidden"><span className="text-xl font-bold text-brand">Mere Points</span></div>
+          <div className="mb-8 lg:hidden">{/* eslint-disable-next-line @next/next/no-img-element */}<img src="/brand/logo.png" alt="Mere Points" className="h-10 w-auto" /></div>
           <h1 className="text-2xl font-bold">{title}</h1>
           <p className="mt-1 mb-6 text-muted">{sub}</p>
           {children}

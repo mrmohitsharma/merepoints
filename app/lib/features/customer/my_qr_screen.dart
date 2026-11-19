@@ -92,7 +92,7 @@ class _MyQrScreenState extends State<MyQrScreen> {
           ]),
         ),
         const SizedBox(height: 20),
-        const Text('Show this at any Vyapar Point shop', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700)),
+        const Text('Show this at any Mere Points shop', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w700)),
         const Text('to collect or redeem points', textAlign: TextAlign.center, style: TextStyle(color: Colors.white70, fontSize: 15)),
         const SizedBox(height: 24),
         Container(

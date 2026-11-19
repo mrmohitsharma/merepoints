@@ -10,7 +10,7 @@ import { imageSize, uploadPhoto } from '@/lib/upload';
 import { AD_PHASE, date, inr, pts, PROFESSIONS } from '@/lib/format';
 
 type Phase = 'all' | 'pending_review' | 'live' | 'scheduled' | 'paused' | 'ended';
-const ADV: Record<string, string> = { brand: 'Brand', shop: 'Shop', own: 'Vyapar Point' };
+const ADV: Record<string, string> = { brand: 'Brand', shop: 'Shop', own: 'Mere Points' };
 
 const toLocal = (iso: string) => {
   const d = new Date(new Date(iso).getTime() + 5.5 * 3600_000);
@@ -55,7 +55,7 @@ export default function Ads() {
           { value: 'live', label: 'Live' }, { value: 'scheduled', label: 'Scheduled' }, { value: 'paused', label: 'Paused' }, { value: 'ended', label: 'Ended' },
         ]} />
       </div>
-      <Async state={list} empty={<Empty title="No ads here" sub="Create one for a brand, for Vyapar Point itself, or approve a shop's request." />}>
+      <Async state={list} empty={<Empty title="No ads here" sub="Create one for a brand, for Mere Points itself, or approve a shop's request." />}>
         {(rs) => (
           <Table rows={rs} rowKey={(r) => r.id}
             onRow={(r) => (r.phase === 'pending_review' ? setReview(r) : editable && !['rejected', 'cancelled', 'pending_payment'].includes(r.phase) ? setEdit(r) : setReview(r))}
@@ -186,7 +186,7 @@ function AdForm({ ad, onClose, onSaved }: { ad: any; onClose: () => void; onSave
     try {
       await adminApi.post('admin/ads', {
         ...(isNew ? {} : { id: ad.id }),
-        advertiserKind: f.advertiserKind, advertiserName: f.advertiserKind === 'own' ? 'Vyapar Point' : f.advertiserName.trim() || shops.data?.find((s) => String(s.id) === f.shopId)?.name,
+        advertiserKind: f.advertiserKind, advertiserName: f.advertiserKind === 'own' ? 'Mere Points' : f.advertiserName.trim() || shops.data?.find((s) => String(s.id) === f.shopId)?.name,
         shopId: f.shopId ? Number(f.shopId) : null,
         title: f.title.trim(), subtitle: f.subtitle.trim() || null, titleHi: f.titleHi.trim() || null, subtitleHi: f.subtitleHi.trim() || null,
         imageUrl: f.imageUrl, bgColor: f.bgColor,
@@ -214,7 +214,7 @@ function AdForm({ ad, onClose, onSaved }: { ad: any; onClose: () => void; onSave
         <div className="space-y-5">
           <Card title="Advertiser" className="!p-4">
             <div className="space-y-3">
-              <Tabs value={f.advertiserKind} onChange={(v) => set({ advertiserKind: v })} items={[{ value: 'brand', label: 'Brand' }, { value: 'shop', label: 'Shop' }, { value: 'own', label: 'Vyapar Point' }]} />
+              <Tabs value={f.advertiserKind} onChange={(v) => set({ advertiserKind: v })} items={[{ value: 'brand', label: 'Brand' }, { value: 'shop', label: 'Shop' }, { value: 'own', label: 'Mere Points' }]} />
               {f.advertiserKind !== 'own' && <Badge tone="amber">Paid ad</Badge>}
               {f.advertiserKind === 'brand' && <Field label="Brand name"><Input value={f.advertiserName} onChange={(e) => set({ advertiserName: e.target.value })} placeholder="Century Ply" /></Field>}
               {(f.advertiserKind === 'shop' || f.mode === 'near_shop') && (

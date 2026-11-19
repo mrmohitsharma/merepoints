@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # One-time setup on a machine with Flutter installed (3.24 or newer).
-# Generates the native Android/iOS projects, then applies Vyapar Point's permissions and settings.
+# Generates the native Android/iOS projects, then applies Mere Points's permissions and settings.
 set -euo pipefail
 cd "$(dirname "$0")"
 
 flutter --version
-flutter create --platforms=android,ios --org in.vyaparpoint --project-name vyapar_point .
+flutter create --platforms=android,ios --org in.merepoints --project-name mere_points .
 dart run tool/configure_platforms.dart
 flutter pub get
 flutter analyze

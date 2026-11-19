@@ -21,3 +21,19 @@
 html, body { background: var(--color-page); color: var(--color-ink); }
 body { font-size: 14px; -webkit-font-smoothing: antialiased; }
 .tabular { font-variant-numeric: tabular-nums; }
+
+/* ---------------- website legal pages */
+.legal { font-size: 16px; line-height: 1.7; color: #2B3742; }
+.legal h1 { font-size: 34px; line-height: 1.2; font-weight: 800; color: var(--color-ink); letter-spacing: -0.01em; }
+.legal h2 { margin-top: 2.2rem; font-size: 20px; font-weight: 700; color: var(--color-ink); scroll-margin-top: 90px; }
+.legal h3 { margin-top: 1.2rem; font-size: 16px; font-weight: 700; color: var(--color-ink); }
+.legal p { margin-top: 0.8rem; }
+.legal ul { margin-top: 0.6rem; padding-left: 1.3rem; list-style: disc; }
+.legal li { margin-top: 0.35rem; }
+.legal a { color: var(--color-brand); font-weight: 600; }
+.legal a:hover { text-decoration: underline; }
+.legal table { margin-top: 1rem; width: 100%; border-collapse: collapse; font-size: 14.5px; }
+.legal th, .legal td { border: 1px solid var(--color-line); padding: 8px 10px; text-align: left; vertical-align: top; }
+.legal th { background: var(--color-page); font-weight: 600; color: var(--color-ink); }
+.legal .short { margin-top: 1.2rem; border-radius: 12px; background: var(--color-brand-50); padding: 14px 18px; color: #0B3A63; }
+html { scroll-behavior: smooth; }

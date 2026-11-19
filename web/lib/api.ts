@@ -44,7 +44,7 @@ async function request<T>(portal: Portal, path: string, o: Opts = {}): Promise<T
       body: o.body !== undefined ? JSON.stringify(o.body) : undefined,
     });
   } catch {
-    throw new ApiError(0, 'NETWORK', 'Cannot reach Vyapar Point. Check your internet and try again.');
+    throw new ApiError(0, 'NETWORK', 'Cannot reach Mere Points. Check your internet and try again.');
   }
   if (res.status === 401 && token) {
     session.clear(portal);

@@ -17,7 +17,7 @@ const istDate = (offsetDays = 0) => new Date(Date.now() + 5.5 * 3_600_000 + offs
 describe('home carousel ads', () => {
   test('admin ad reaches everyone; no "ad" label in payload; order follows sort', async () => {
     const a1 = (await http().post('/v1/admin/ads').set(auth(admin.token)).send(adminAd({ sort: 20, title: 'Second' })).expect(201)).body.id;
-    const a2 = (await http().post('/v1/admin/ads').set(auth(admin.token)).send(adminAd({ sort: 5, title: 'First', advertiserKind: 'own', advertiserName: 'Vyapar Point' })).expect(201)).body.id;
+    const a2 = (await http().post('/v1/admin/ads').set(auth(admin.token)).send(adminAd({ sort: 5, title: 'First', advertiserKind: 'own', advertiserName: 'Mere Points' })).expect(201)).body.id;
     await http().post('/v1/admin/ads').set(auth(admin.token)).send(adminAd({ title: 'Future', startsAt: iso(now + 86_400_000), endsAt: iso(now + 2 * 86_400_000) })).expect(201);
     const c = await makeCustomer();
     const ads = await home(c.token);

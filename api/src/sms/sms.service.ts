@@ -4,22 +4,22 @@ import { E } from '../common/errors';
 
 /** SMS templates. Keep each under 160 characters after filling in values (DLT-registered in production). */
 export const SMS = {
-  otp: (code: string) => `${code} is your Vyapar Point code. Valid 5 min. Do not share it. -Vyapar Point`,
+  otp: (code: string) => `${code} is your Mere Points code. Valid 5 min. Do not share it. -Mere Points`,
   earned: (shop: string, pts: number, bal: number) =>
-    `${shop}: +${pts} points added. Balance with them: ${bal} pts. Not you? Reply HELP. -Vyapar Point`,
+    `${shop}: +${pts} points added. Balance with them: ${bal} pts. Not you? Reply HELP. -Mere Points`,
   redeemOtp: (shop: string, pts: number, rupees: string, code: string) =>
-    `Got Rs ${rupees} from ${shop} for ${pts} pts? Tap Received in app or tell them code ${code}. -Vyapar Point`,
+    `Got Rs ${rupees} from ${shop} for ${pts} pts? Tap Received in app or tell them code ${code}. -Mere Points`,
   redeemDone: (shop: string, pts: number, rupees: string, ref: string) =>
-    `${shop}: ${pts} pts redeemed for Rs ${rupees}. Ref ${ref}. -Vyapar Point`,
+    `${shop}: ${pts} pts redeemed for Rs ${rupees}. Ref ${ref}. -Mere Points`,
   shopApproved: (shop: string, days: number) =>
-    `${shop} is live on Vyapar Point. Free trial for ${days} days. Start adding points to your customers now. -Vyapar Point`,
-  shopReactivated: (shop: string) => `${shop} is active again on Vyapar Point. You can add points and pay out as usual. -Vyapar Point`,
-  shopRejected: () => `Your Vyapar Point shop registration needs changes. Open the app to see the reason. -Vyapar Point`,
-  shopSuspended: () => `Your Vyapar Point shop is suspended. Open the app or call support to know more. -Vyapar Point`,
+    `${shop} is live on Mere Points. Free trial for ${days} days. Start adding points to your customers now. -Mere Points`,
+  shopReactivated: (shop: string) => `${shop} is active again on Mere Points. You can add points and pay out as usual. -Mere Points`,
+  shopRejected: () => `Your Mere Points shop registration needs changes. Open the app to see the reason. -Mere Points`,
+  shopSuspended: () => `Your Mere Points shop is suspended. Open the app or call support to know more. -Mere Points`,
   planDue: (shop: string, date: string) =>
-    `${shop}: your Vyapar Point plan has ended. Renew by ${date} to keep adding points. -Vyapar Point`,
+    `${shop}: your Mere Points plan has ended. Renew by ${date} to keep adding points. -Mere Points`,
   invite: (shop: string, pts: number) =>
-    `${shop} gave you ${pts} points on Vyapar Point. Get the app to see and use them: vyp.in/app -Vyapar Point`,
+    `${shop} gave you ${pts} points on Mere Points. Get the app to see and use them: merepoints.in/app -Mere Points`,
 };
 
 @Injectable()

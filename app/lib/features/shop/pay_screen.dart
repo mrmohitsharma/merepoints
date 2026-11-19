@@ -214,7 +214,7 @@ class _PayScreenState extends State<PayScreen> with WidgetsBindingObserver {
             SizedBox(width: 110, child: BusyButton(label: 'Verify', onPressed: _verifyOtp)),
           ]),
           TextButton(onPressed: _markPaid, child: const Text('Resend SMS')),
-          const Text('Not confirmed in 24 hrs? It goes to Vyapar Point support to check.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: VP.muted)),
+          const Text('Not confirmed in 24 hrs? It goes to Mere Points support to check.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: VP.muted)),
         ],
       ]),
     );

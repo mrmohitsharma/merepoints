@@ -1,4 +1,4 @@
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/vyapar_test';
+process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/merepoints_test';
 process.env.OTP_DEV_ECHO = 'true';
 
 import request from 'supertest';

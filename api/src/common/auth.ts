@@ -68,9 +68,9 @@ export class AuthGuard implements CanActivate {
       req.admin = { id: a.id, role: a.role, username: a.username } satisfies AdminCtx;
       return true;
     }
-    if (adminRoles) throw E.forbidden('ADMIN_ONLY', 'Only Vyapar Point admins can do this');
+    if (adminRoles) throw E.forbidden('ADMIN_ONLY', 'Only Mere Points admins can do this');
     if (payload.kind && payload.kind !== 'access') throw E.unauth();
-    const user = await this.db.one<{ id: number; is_super_admin: boolean }>('SELECT id, is_super_admin FROM users WHERE id = $1', [payload.sub]);
+    const user = await this.db.one<{ id: number; is_super_admin: boolean }>('SELECT id, is_super_admin FROM users WHERE id = $1 AND deleted_at IS NULL', [payload.sub]);
     if (!user) throw E.unauth();
     req.user = { id: user.id, isSuperAdmin: user.is_super_admin } satisfies AuthUser;
 
@@ -105,7 +105,7 @@ export class AuthGuard implements CanActivate {
       if (shopReq.owner && !isOwner) throw E.forbidden('OWNER_ONLY', 'Only the shop owner can do this');
       if (shopReq.perm && !shop[shopReq.perm]) throw E.forbidden('NO_PERMISSION', 'You do not have permission for this');
       if (shopReq.writes && shop.billing === 'read_only') {
-        throw new AppError(402, 'PLAN_EXPIRED', 'Your Vyapar Point plan has expired. Renew in Billing to add points and send SMS again. Customers can still redeem.');
+        throw new AppError(402, 'PLAN_EXPIRED', 'Your Mere Points plan has expired. Renew in Billing to add points and send SMS again. Customers can still redeem.');
       }
       req.shop = shop;
     }

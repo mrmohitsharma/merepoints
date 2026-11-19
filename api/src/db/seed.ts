@@ -1,7 +1,7 @@
 /**
  * Demo data for trying the apps and web portals (never run against production):
  *   npm run seed            (API must be running, OTP_DEV_ECHO on)
- * Creates an admin owner (mohit / Vyapar-admin-2026), 6 shops, ~40 customers, bills, offers,
+ * Creates an admin owner (mohit / Merepoints-admin-2026), 6 shops, ~40 customers, bills, offers,
  * gifts, redemptions (one disputed), a paid plan, and 60 days of history for the charts.
  */
 import { Pool } from 'pg';
@@ -53,13 +53,13 @@ async function main() {
   // ---- admin owner
   await pool.query(
     `INSERT INTO admin_users (username, name, password_hash, role, must_change_password) VALUES ('mohit','Mohit Sharma',$1,'owner',FALSE)
-     ON CONFLICT (username) DO NOTHING`, [await hashPassword('Vyapar-admin-2026')],
+     ON CONFLICT (username) DO NOTHING`, [await hashPassword('Merepoints-admin-2026')],
   );
   await pool.query(
     `INSERT INTO admin_users (username, name, password_hash, role, must_change_password) VALUES ('support1','Pooja (Support)',$1,'support',FALSE)
      ON CONFLICT (username) DO NOTHING`, [await hashPassword('Support-pass-2026')],
   );
-  const admin = await call('POST', '/admin/auth/login', { username: 'mohit', password: 'Vyapar-admin-2026' });
+  const admin = await call('POST', '/admin/auth/login', { username: 'mohit', password: 'Merepoints-admin-2026' });
 
   // ---- shops (last one stays pending for the approvals queue)
   const shops: { id: number; token: string }[] = [];
@@ -133,11 +133,11 @@ async function main() {
   await tryRedeem(11, 'upi', 'dispute');
 
   // ---- home carousel: two admin ads + one shop request waiting for review
-  await call('POST', '/admin/ads', { title: 'Century Ply — extra points on every sheet', subtitle: 'At Vyapar Point shops near you', bgColor: '#7C2D12',
+  await call('POST', '/admin/ads', { title: 'Century Ply — extra points on every sheet', subtitle: 'At Mere Points shops near you', bgColor: '#7C2D12',
     advertiserKind: 'brand', advertiserName: 'Century Ply', link: { kind: 'shop', shopId: live[0].id }, target: { mode: 'all' },
     startsAt: new Date(now - 86_400_000).toISOString(), endsAt: new Date(now + 30 * 86_400_000).toISOString(), sort: 10, amountRupees: 25000 }, admin.token);
-  await call('POST', '/admin/ads', { title: 'Refer a shop, get 500 points', subtitle: 'Tell your shop about Vyapar Point', titleHi: 'दुकान जोड़ें, 500 पॉइंट पाएँ', bgColor: '#1D4ED8',
-    advertiserKind: 'own', advertiserName: 'Vyapar Point', link: { kind: 'none' }, target: { mode: 'all' },
+  await call('POST', '/admin/ads', { title: 'Refer a shop, get 500 points', subtitle: 'Tell your shop about Mere Points', titleHi: 'दुकान जोड़ें, 500 पॉइंट पाएँ', bgColor: '#1D4ED8',
+    advertiserKind: 'own', advertiserName: 'Mere Points', link: { kind: 'none' }, target: { mode: 'all' },
     startsAt: new Date(now - 86_400_000).toISOString(), endsAt: new Date(now + 60 * 86_400_000).toISOString(), sort: 20 }, admin.token);
   const req = await call('POST', '/shop/ads', { title: 'Diwali sale — Bosch tools 10% off', bgColor: '#15803D', packCode: 'ad7',
     startDate: new Date(now + 5.5 * 3_600_000).toISOString().slice(0, 10), link: { kind: 'shop' } }, live[1].token, live[1].id);
@@ -161,7 +161,7 @@ async function main() {
     );
   }
   console.log(`Seeded ${shops.length} shops (1 pending), ${customers.length} customers.`);
-  console.log('Super Admin login: mohit / Vyapar-admin-2026   (support: support1 / Support-pass-2026)');
+  console.log('Super Admin login: mohit / Merepoints-admin-2026   (support: support1 / Support-pass-2026)');
   console.log('Merchant login (OTP shown on screen in dev): 98100 00001 … 98100 00005');
   await pool.end();
 }

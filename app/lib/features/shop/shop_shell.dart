@@ -110,7 +110,7 @@ class _NotApproved extends StatelessWidget {
         Text(
           pending
               ? 'We check your shop details and location, usually within 24 hours. You will get an SMS when you are live.'
-              : 'Please contact Vyapar Point support. The reason was sent to your registered mobile.',
+              : 'Please contact Mere Points support. The reason was sent to your registered mobile.',
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 16, color: VP.muted, height: 1.4),
         ),

@@ -126,7 +126,7 @@ function QuickAdd({ mobileNo, onAdded, disabled }: { mobileNo: string; onAdded: 
   }
   return (
     <Card className="mt-6" title={<span className="flex items-center gap-2"><UserPlus size={18} /> New customer: {mobile(mobileNo)}</span>}>
-      <p className="mb-4 text-muted">Not on Vyapar Point yet. Add them now: they don’t need the app to start earning.</p>
+      <p className="mb-4 text-muted">Not on Mere Points yet. Add them now: they don’t need the app to start earning.</p>
       <div className="grid gap-4 md:grid-cols-3">
         <Field label="Name"><Input autoFocus value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
         <Field label="Work"><Select value={f.profession} onChange={(e) => setF({ ...f, profession: e.target.value })}>{Object.entries(PROFESSIONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></Field>

@@ -3,7 +3,7 @@ import './globals.css';
 import { ToastProvider } from '@/components/ui';
 
 export const metadata: Metadata = {
-  title: 'Vyapar Point',
+  title: 'Mere Points',
   description: 'Loyalty points for building-material shops and their karigars',
 };
 

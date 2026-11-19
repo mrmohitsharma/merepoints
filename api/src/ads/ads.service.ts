@@ -169,7 +169,7 @@ export class AdsService {
       const r = (await c.query(
         `UPDATE ads SET status = 'cancelled', updated_at = now() WHERE id = $1 AND shop_id = $2 AND status = 'pending_payment' RETURNING id`, [adId, shopId],
       )).rows[0];
-      if (!r) throw E.bad('CANNOT_CANCEL', 'Only unpaid requests can be cancelled here. For paid ones, contact Vyapar Point.');
+      if (!r) throw E.bad('CANNOT_CANCEL', 'Only unpaid requests can be cancelled here. For paid ones, contact Mere Points.');
       await this.shops.audit(c, userId, shopId, 'ad.cancel', 'ad', adId, null);
       return { cancelled: true };
     });
@@ -246,8 +246,8 @@ export class AdsService {
         if (owner) {
           const t = ad.title.slice(0, 40);
           await this.sms.enqueue(c, owner.mobile, b.approve ? 'ad_approved' : 'ad_rejected', b.approve
-            ? `Vyapar Point: your home-screen ad "${t}" is approved and will run as booked.`
-            : `Vyapar Point: ad "${t}" not approved: ${b.reason!.trim().slice(0, 50)}. Refund in 5-7 days.`);
+            ? `Mere Points: your home-screen ad "${t}" is approved and will run as booked.`
+            : `Mere Points: ad "${t}" not approved: ${b.reason!.trim().slice(0, 50)}. Refund in 5-7 days.`);
         }
       }
       return { status: b.approve ? 'scheduled' : 'rejected' };

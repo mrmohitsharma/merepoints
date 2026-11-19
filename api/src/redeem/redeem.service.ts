@@ -187,7 +187,7 @@ export class RedeemService {
       const { r, w } = await this.lockRedemption(c, 'public_id = $1', [rid]);
       if (!['held', 'paid', 'disputed'].includes(r.status)) throw E.conflict('BAD_STATE', `Redemption is already ${r.status}`);
       await this.shops.audit(c, { admin: adminId }, r.shop_id, `redemption.admin_${action}`, 'redemption', rid, { note });
-      return action === 'confirm' ? this.finalize(c, r, w, 'admin') : this.release(c, r, w, null, `Vyapar Point support: ${note}`);
+      return action === 'confirm' ? this.finalize(c, r, w, 'admin') : this.release(c, r, w, null, `Mere Points support: ${note}`);
     });
   }
 

@@ -53,8 +53,8 @@ class ShopHomeScreen extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                   child: InfoNote(
                     billing == 'read_only'
-                        ? 'Your Vyapar Point plan has expired. Adding points and SMS are paused; payouts still work. Renew in Plan & billing on the web dashboard.'
-                        : 'Your Vyapar Point plan payment is due. Renew in Plan & billing on the web dashboard to keep adding points.',
+                        ? 'Your Mere Points plan has expired. Adding points and SMS are paused; payouts still work. Renew in Plan & billing on the web dashboard.'
+                        : 'Your Mere Points plan payment is due. Renew in Plan & billing on the web dashboard to keep adding points.',
                     icon: Icons.warning_amber_rounded,
                     color: billing == 'read_only' ? VP.red : const Color(0xFF9A6400),
                     bg: billing == 'read_only' ? const Color(0xFFFDECEC) : const Color(0xFFFEF5E1),

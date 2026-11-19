@@ -119,7 +119,7 @@ export class OffersService {
       if (!rows.length) throw E.bad('NO_RECIPIENTS', 'No customers in this group');
       if (shop.sms_balance < rows.length) throw E.forbidden('SMS_BALANCE_LOW', `You need ${rows.length} SMS but have ${shop.sms_balance}. Buy an SMS pack.`);
       for (const r of rows) {
-        const body = template.replaceAll('{name}', r.first_name).replaceAll('{points}', String(r.balance_points)) + ' -Vyapar Point';
+        const body = template.replaceAll('{name}', r.first_name).replaceAll('{points}', String(r.balance_points)) + ' -Mere Points';
         await this.sms.enqueue(c, r.mobile, 'shop_broadcast', body, shopId);
       }
       await c.query('UPDATE shops SET sms_balance = sms_balance - $2 WHERE id = $1', [shopId, rows.length]);

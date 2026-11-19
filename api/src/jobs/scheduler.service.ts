@@ -25,6 +25,8 @@ export class SchedulerService implements OnApplicationBootstrap, OnApplicationSh
       { name: 'escalate-redemptions', everyMs: 10 * 60_000, run: () => this.redeem.escalateStale() },
       { name: 'expire-points', everyMs: 60 * 60_000, run: () => this.expiry.run() },
       { name: 'plan-reminders', everyMs: 60 * 60_000, run: () => this.planReminders() },
+      // Privacy policy: OTP records are kept for 24 hours only.
+      { name: 'cleanup-otps', everyMs: 60 * 60_000, run: async () => (await this.db.pool.query(`DELETE FROM otp_codes WHERE created_at < now() - interval '24 hours'`)).rowCount ?? 0 },
     ];
   }
 

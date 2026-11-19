@@ -1,4 +1,4 @@
--- Vyapar Point: core schema
+-- Mere Points: core schema
 -- Conventions
 --   * Money is stored in paise (BIGINT). Never floats.
 --   * Percentages are basis points (500 = 5.00%). Multipliers are x100 (150 = 1.5x).

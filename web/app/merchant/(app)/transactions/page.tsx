@@ -44,7 +44,7 @@ export default function Transactions() {
   return (
     <>
       <PageHeader title="Transactions" sub="Every point added, paid out, reversed or expired at your shop."
-        actions={isOwner && <Button variant="secondary" onClick={() => downloadCsv('merchant', 'shop/reports/transactions.csv', { from, to }, `vyapar-point-${from}-to-${to}.csv`).catch(toast.error)}><Download size={16} /> Download Excel (CSV)</Button>} />
+        actions={isOwner && <Button variant="secondary" onClick={() => downloadCsv('merchant', 'shop/reports/transactions.csv', { from, to }, `mere-points-${from}-to-${to}.csv`).catch(toast.error)}><Download size={16} /> Download Excel (CSV)</Button>} />
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <Field label="From"><Input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} /></Field>
         <Field label="To"><Input type="date" value={to} min={from} max={istToday()} onChange={(e) => setTo(e.target.value)} /></Field>

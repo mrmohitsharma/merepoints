@@ -45,7 +45,7 @@ export function PayPanel({ id, shopName, onDone }: { id: string; shopName: strin
   if (!r) return <div className="flex justify-center py-10 text-muted"><Loader2 className="animate-spin" /></div>;
 
   const upiLink = r.upi_id
-    ? `upi://pay?pa=${encodeURIComponent(r.upi_id)}&pn=${encodeURIComponent(r.customer_name)}&am=${r.value_rupees.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Vyapar Point ${r.id} - ${shopName}`)}`
+    ? `upi://pay?pa=${encodeURIComponent(r.upi_id)}&pn=${encodeURIComponent(r.customer_name)}&am=${r.value_rupees.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Mere Points ${r.id} - ${shopName}`)}`
     : null;
 
   async function markPaid() {
@@ -85,7 +85,7 @@ export function PayPanel({ id, shopName, onDone }: { id: string; shopName: strin
     return <div className="py-6 text-center"><XCircle className="mx-auto text-muted" size={52} /><p className="mt-3 text-xl font-bold">Cancelled</p><p className="text-muted">The points went back to the customer.</p></div>;
   }
   if (r.status === 'disputed') {
-    return <>{head}<Note tone="bad"><b>The customer says they did not receive it.</b> {r.dispute_note ? `“${r.dispute_note}”` : ''} The Vyapar Point team will check with you and the customer. Keep your payment proof{r.payment_ref ? ` (ref ${r.payment_ref})` : ''}.</Note></>;
+    return <>{head}<Note tone="bad"><b>The customer says they did not receive it.</b> {r.dispute_note ? `“${r.dispute_note}”` : ''} The Mere Points team will check with you and the customer. Keep your payment proof{r.payment_ref ? ` (ref ${r.payment_ref})` : ''}.</Note></>;
   }
 
   if (r.status === 'held') {
@@ -123,7 +123,7 @@ export function PayPanel({ id, shopName, onDone }: { id: string; shopName: strin
         <Loader2 className="animate-spin text-brand" />
         <div>
           <p className="font-semibold">Waiting for {r.customer_name.split(' ')[0]} to tap “Received”</p>
-          <p className="text-sm text-muted">Ask them to open the Vyapar Point app. This updates by itself.</p>
+          <p className="text-sm text-muted">Ask them to open the Mere Points app. This updates by itself.</p>
         </div>
       </div>
       <div className="mt-5 rounded-xl bg-page p-4">

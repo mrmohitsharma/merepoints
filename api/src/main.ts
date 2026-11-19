@@ -28,6 +28,6 @@ export async function createApp() {
 if (require.main === module) {
   createApp().then(async (app) => {
     await app.listen(config.port);
-    console.log(`Vyapar Point API on :${config.port}/v1`);
+    console.log(`Mere Points API on :${config.port}/v1`);
   });
 }

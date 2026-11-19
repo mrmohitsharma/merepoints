@@ -51,7 +51,7 @@ export default function Messages() {
             <Field label="Message" hint={`${text.length}/${MAX} characters. Use {name} for the customer's first name and {points} for their points.`}>
               <Textarea rows={4} maxLength={MAX} value={text} onChange={(e) => setText(e.target.value)} placeholder="Namaste {name}, Diwali offer at Sharma Ply: 1.5x points till 10 Nov. You have {points} points." />
             </Field>
-            <div className="rounded-lg bg-page p-3 text-sm"><span className="text-muted">Preview: </span>{(text || '…').replaceAll('{name}', 'Ramesh').replaceAll('{points}', '1,250')} -Vyapar Point</div>
+            <div className="rounded-lg bg-page p-3 text-sm"><span className="text-muted">Preview: </span>{(text || '…').replaceAll('{name}', 'Ramesh').replaceAll('{points}', '1,250')} -Mere Points</div>
             {readOnly && <Note tone="bad">Your plan has expired. Renew to send SMS.</Note>}
             {!readOnly && count !== null && !enough && <Note tone="amber">You need {pts(count)} SMS but have {pts(shop.sms_balance)}. <Link href="/merchant/billing/" className="font-semibold underline">Buy an SMS pack</Link></Note>}
             <Button size="lg" busy={busy} disabled={readOnly || !count || !enough || text.trim().length < 5} onClick={send}>

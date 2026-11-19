@@ -4,7 +4,7 @@ import 'dart:math';
 
 import 'package:http/http.dart' as http;
 
-/// Base URL comes from `--dart-define=API_URL=https://api.vyaparpoint.in/v1`.
+/// Base URL comes from `--dart-define=API_URL=https://api.merepoints.in/v1`.
 /// Android emulator reaches the host machine at 10.0.2.2.
 const String kApiUrl = String.fromEnvironment('API_URL', defaultValue: 'http://10.0.2.2:3000/v1');
 

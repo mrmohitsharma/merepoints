@@ -117,7 +117,7 @@ class _NearbyScreenState extends State<NearbyScreen> {
                     'lat': _pos!.latitude, 'lng': _pos!.longitude, 'radiusKm': _radius, 'category': _category, 'search': _search,
                   }) as List,
                   builder: (context, list, reload) => list.isEmpty
-                      ? ListView(children: const [Padding(padding: EdgeInsets.all(40), child: Center(child: Text('No Vyapar Point shops here yet. Try a bigger distance.', textAlign: TextAlign.center, style: TextStyle(color: VP.muted))))])
+                      ? ListView(children: const [Padding(padding: EdgeInsets.all(40), child: Center(child: Text('No Mere Points shops here yet. Try a bigger distance.', textAlign: TextAlign.center, style: TextStyle(color: VP.muted))))])
                       : ListView.builder(
                           padding: const EdgeInsets.only(top: 10, bottom: 100),
                           itemCount: list.length,

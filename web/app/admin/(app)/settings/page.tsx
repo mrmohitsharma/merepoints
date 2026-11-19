@@ -27,7 +27,7 @@ export default function Settings() {
 
   return (
     <>
-      <PageHeader title="Platform settings" sub="Apply to every shop on Vyapar Point." />
+      <PageHeader title="Platform settings" sub="Apply to every shop on Mere Points." />
       <Async state={s}>
         {(d: any) => (
           <Card className="max-w-2xl">

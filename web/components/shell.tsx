@@ -13,9 +13,9 @@ export type NavItem = { href: string; label: string; icon: LucideIcon; badge?: n
 export function Logo({ sub }: { sub?: string }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber text-lg font-black text-navy">V</span>
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber text-lg font-black text-navy">M</span>
       <span className="leading-tight">
-        <span className="block font-bold text-white">Vyapar Point</span>
+        <span className="block font-bold text-white">Mere Points</span>
         {sub && <span className="block text-xs text-white/60">{sub}</span>}
       </span>
     </div>
@@ -66,7 +66,7 @@ export function Shell({ sub, nav, top, footer, onLogout, children }: {
       )}
       <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-line bg-white px-4 lg:hidden">
         <button onClick={() => setOpen(true)} aria-label="Menu"><Menu /></button>
-        <span className="font-bold text-brand">Vyapar Point</span>
+        <span className="font-bold text-brand">Mere Points</span>
       </header>
       <main className="mx-auto max-w-7xl px-4 py-6 lg:px-8 lg:py-8">{children}</main>
     </div>
@@ -82,11 +82,11 @@ export function AuthLayout({ title, sub, children }: { title: string; sub: strin
           <p className="text-3xl font-bold leading-snug text-white">Loyalty that brings<br />your karigars back.</p>
           <p className="mt-3 max-w-md text-white/70">Points on every bill, paid out at your counter. Built for building-material shops and the carpenters, painters and contractors who buy there.</p>
         </div>
-        <p className="text-xs text-white/40">© Vyapar Point</p>
+        <p className="text-xs text-white/40">© Mere Points</p>
       </div>
       <div className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
-          <div className="mb-8 lg:hidden"><span className="text-xl font-bold text-brand">Vyapar Point</span></div>
+          <div className="mb-8 lg:hidden"><span className="text-xl font-bold text-brand">Mere Points</span></div>
           <h1 className="text-2xl font-bold">{title}</h1>
           <p className="mt-1 mb-6 text-muted">{sub}</p>
           {children}

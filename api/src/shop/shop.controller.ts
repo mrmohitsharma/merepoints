@@ -28,6 +28,17 @@ export class ShopRegisterController {
     return this.db.many('SELECT code, name FROM categories WHERE active ORDER BY sort');
   }
 
+  /** Public pricing for the website: active plans, SMS packs, free-trial length. */
+  @Public() @Get('plans')
+  async plans() {
+    const [plans, packs, trial] = await Promise.all([
+      this.db.many(`SELECT code, name, price_paise / 100 AS price_rupees, max_staff, sms_included, features FROM plans WHERE active ORDER BY sort`),
+      this.db.many(`SELECT sms_count, price_paise / 100 AS price_rupees FROM sms_packs WHERE active ORDER BY sms_count`),
+      this.db.one(`SELECT value FROM platform_settings WHERE key = 'trial_days'`).catch(() => null),
+    ]);
+    return { plans, smsPacks: packs, trialDays: Number(trial?.value ?? 30) };
+  }
+
   /** Work types for sign-up pickers and offer targeting. Editable by Super Admin. */
   @Public() @Get('professions')
   professions() {
@@ -257,7 +268,7 @@ export class ShopController {
   async csv(@CurrentShop() s: ShopCtx, @Res() res: any, @Query('from') from?: string, @Query('to') to?: string) {
     const body = await this.reports.ledgerCsv(s.id, from, to);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="vyapar-point-${s.id}-${from ?? 'last30'}.csv"`);
+    res.setHeader('Content-Disposition', `attachment; filename="mere-points-${s.id}-${from ?? 'last30'}.csv"`);
     res.send(body);
   }
 }

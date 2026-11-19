@@ -26,19 +26,19 @@ void main() {
         Provider<ApiClient>.value(value: api),
         ChangeNotifierProvider<Session>.value(value: session),
       ],
-      child: const VyaparPointApp(),
+      child: const MerePointsApp(),
     ),
   );
 }
 
-class VyaparPointApp extends StatelessWidget {
-  const VyaparPointApp({super.key});
+class MerePointsApp extends StatelessWidget {
+  const MerePointsApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     final lang = context.select<Session, String>((s) => s.language);
     return MaterialApp(
-      title: 'Vyapar Point',
+      title: 'Mere Points',
       debugShowCheckedModeBanner: false,
       theme: buildTheme(),
       locale: Locale(lang),
@@ -85,10 +85,10 @@ class _Splash extends StatelessWidget {
             Container(
               width: 72, height: 72, alignment: Alignment.center,
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)),
-              child: const Text('V', style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: VP.blue)),
+              child: const Text('M', style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: VP.blue)),
             ),
             const SizedBox(height: 16),
-            const Text('Vyapar Point', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
+            const Text('Mere Points', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
           ]),
         ),
       );

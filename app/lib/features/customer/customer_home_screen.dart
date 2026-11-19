@@ -233,7 +233,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> with WidgetsBin
               if (cards.isEmpty)
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: InfoNote('No points yet. Show My QR at any Vyapar Point shop when you buy, and your points card appears here.', icon: Icons.qr_code_2),
+                  child: InfoNote('No points yet. Show My QR at any Mere Points shop when you buy, and your points card appears here.', icon: Icons.qr_code_2),
                 ),
               for (final c in cards)
                 Padding(

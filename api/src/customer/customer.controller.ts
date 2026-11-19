@@ -58,6 +58,10 @@ export class CustomerController {
   @Get('products/:id')
   product(@CurrentUser() u: AuthUser, @Param('id') id: string) { return this.productsSvc.detail(u.id, Number(id)); }
 
+  /** Self-service deletion (Profile › Delete my account). Body: { confirm: "DELETE" }. */
+  @Post('delete-account')
+  deleteAccount(@CurrentUser() u: AuthUser, @Body() body: any) { return this.customers.deleteAccount(u.id, String(body?.confirm ?? '')); }
+
   @Get('history')
   history(@CurrentUser() u: AuthUser, @Query() q: any) {
     return this.customers.history(u.id, { shopId: q.shopId && Number(q.shopId), kind: q.kind, before: q.before, limit: q.limit && Number(q.limit) });

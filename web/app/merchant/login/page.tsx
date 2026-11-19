@@ -45,7 +45,7 @@ function Login() {
       const r = await merchantApi.post('auth/verify', { mobile: mobile.replace(/\D/g, '').slice(-10), code });
       const list: Shop[] = (r.roles?.shops ?? []).filter((s: Shop) => s.status !== 'rejected');
       if (!list.length) {
-        setErr('This number is not linked to any shop. Register your shop in the Vyapar Point app first, or ask the shop owner to add you as staff.');
+        setErr('This number is not linked to any shop. Register your shop in the Mere Points app first, or ask the shop owner to add you as staff.');
         return;
       }
       session.setToken('merchant', r.token);

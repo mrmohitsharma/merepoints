@@ -1,16 +1,16 @@
-# Vyapar Point API
+# Mere Points API
 
-Backend for Vyapar Point: one Flutter app with a role switch (Customer / Shop owner / Staff) plus a Super Admin web console.
+Backend for Mere Points: one Flutter app with a role switch (Customer / Shop owner / Staff) plus a Super Admin web console.
 NestJS + PostgreSQL 16, raw SQL (no ORM) so every hot query is hand-written and index-backed.
 
 ## Run it
 
 ```bash
 npm install
-createdb vyapar && createdb vyapar_test        # PostgreSQL 14+ (needs btree_gist, citext — both ship with Postgres)
-npm run migrate                                 # DATABASE_URL=postgres://... (default: local vyapar)
+createdb merepoints && createdb merepoints_test        # PostgreSQL 14+ (needs btree_gist, citext — both ship with Postgres)
+npm run migrate                                 # DATABASE_URL=postgres://... (default: local merepoints)
 npm run dev                                     # http://localhost:3000/v1
-npm test                                        # 30 end-to-end tests against vyapar_test (resets it)
+npm test                                        # 30 end-to-end tests against merepoints_test (resets it)
 ```
 
 Env: `DATABASE_URL`, `JWT_SECRET`, `QR_SECRET`, `OTP_SECRET` (all required in production), `OTP_DEV_ECHO=false` in production.
@@ -135,7 +135,7 @@ Errors are always `{ code, message }` with stable codes (`DUPLICATE_INVOICE`, `O
   - `redeem`: gift for points (points cost, stock). Unchanged redeem flow.
   - `earn`: "earn more" item with fixed `bonus_points` per unit. At the counter `POST shop/points/bill` takes `items: [{productId, qty}]`; the bonus is added **on top**: no offer multiplier, outside the per-bill cap. Stored in `bills.bonus_points` + `bill_items`; one ledger entry for bill + bonus, so reversing the bill takes back both.
 - **Customer feed**: Home shows 6 at a time ("Load more" = next offset). Explore › Products has My shops / Nearby, categories, "can take now". Redeem items the customer can take sort first. Product detail says "N more points ≈ ₹X of shopping" at the shop's lowest rate.
-- **Ads** (`migrations/005_ads.sql`): Super Admin creates ads (brand / shop / Vyapar Point), or a shop requests one, pays by Razorpay (`payment_kind 'ad'`) and admin approves or rejects (SMS to owner). Targeting: everyone, cities, or near a shop (live location if the app sends it, else same city / existing card), plus work types. Live = approved and inside the dates; approving late keeps the paid number of days. Views/taps per day in `ad_daily_stats`.
+- **Ads** (`migrations/005_ads.sql`): Super Admin creates ads (brand / shop / Mere Points), or a shop requests one, pays by Razorpay (`payment_kind 'ad'`) and admin approves or rejects (SMS to owner). Targeting: everyone, cities, or near a shop (live location if the app sends it, else same city / existing card), plus work types. Live = approved and inside the dates; approving late keeps the paid number of days. Views/taps per day in `ad_daily_stats`.
 - **Work types** are a table (`professions`), editable in Super Admin. Added: mason, tile fitter, POP / false ceiling, welder / fabricator, kitchen / wardrobe installer, builder / site supervisor.
 - **Uploads**: presigned S3 PUT (JPG/PNG/WebP, 2 MB). Development without `S3_BUCKET` stores files in `api/uploads/`.
 - Tests: 63 (`npm test`).

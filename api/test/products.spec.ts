@@ -135,3 +135,12 @@ describe('work types', () => {
     await http().post('/v1/admin/professions').set(auth(support.token)).send({ code: 'x_y', name: 'XY' }).expect(403);
   });
 });
+
+describe('public pricing', () => {
+  test('website can read plans without login', async () => {
+    const r = (await http().get('/v1/shops/plans').expect(200)).body;
+    expect(r.plans.map((p: any) => p.code)).toEqual(['basic', 'pro', 'business']);
+    expect(r.plans[0].price_rupees).toBe(499);
+    expect(r.trialDays).toBeGreaterThan(0);
+  });
+});

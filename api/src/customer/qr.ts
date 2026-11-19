@@ -17,7 +17,7 @@ export function makeQr(customerId: number, now = Date.now()) {
 
 export function readQr(token: string, now = Date.now()): number {
   const m = /^VP1\.(\d+)\.(\d+)\.([A-Za-z0-9_-]{16})$/.exec(token.trim());
-  if (!m) throw E.bad('QR_INVALID', 'This is not a Vyapar Point customer QR');
+  if (!m) throw E.bad('QR_INVALID', 'This is not a Mere Points customer QR');
   const [, cid, win, mac] = m;
   const current = Math.floor(now / 1000 / config.qrWindowSeconds);
   const w = Number(win);

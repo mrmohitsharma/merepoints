@@ -115,6 +115,6 @@ describe('customer app', () => {
     const ok = await http().post('/v1/shop/messages').set(auth(A.owner.token, A.shopId)).send({ segment: 'profession:carpenter', text: 'Namaste {name}, you have {points} pts at our shop.' }).expect(201);
     expect(ok.body).toEqual({ sent: 1, smsBalance: 9 });
     const body = (await pg.query(`SELECT body FROM sms_outbox WHERE template = 'shop_broadcast' ORDER BY id DESC LIMIT 1`)).rows[0].body;
-    expect(body).toBe('Namaste Ramesh, you have 100 pts at our shop. -Vyapar Point');
+    expect(body).toBe('Namaste Ramesh, you have 100 pts at our shop. -Mere Points');
   });
 });

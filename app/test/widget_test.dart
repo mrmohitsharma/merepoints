@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
-import 'package:vyapar_point/core/api.dart';
-import 'package:vyapar_point/core/format.dart';
-import 'package:vyapar_point/core/points_math.dart';
-import 'package:vyapar_point/core/session.dart';
-import 'package:vyapar_point/features/auth/language_screen.dart';
+import 'package:mere_points/core/api.dart';
+import 'package:mere_points/core/format.dart';
+import 'package:mere_points/core/points_math.dart';
+import 'package:mere_points/core/session.dart';
+import 'package:mere_points/features/auth/language_screen.dart';
 
 void main() {
   group('points formula matches the server', () {

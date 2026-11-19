@@ -54,7 +54,7 @@ class _MessageScreenState extends State<MessageScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const suffix = ' -Vyapar Point';
+    const suffix = ' -Mere Points';
     final preview = _text.text.replaceAll('{name}', 'Ramesh').replaceAll('{points}', '1750') + suffix;
     return Scaffold(
       backgroundColor: Colors.white,
@@ -63,7 +63,7 @@ class _MessageScreenState extends State<MessageScreen> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(color: VP.blueSoft, borderRadius: BorderRadius.circular(12)),
-          child: const Row(children: [Icon(Icons.sms_outlined, color: VP.blue), SizedBox(width: 10), Expanded(child: Text('SMS · also shows in their Vyapar Point app', style: TextStyle(color: VP.blue, fontWeight: FontWeight.w700)))]),
+          child: const Row(children: [Icon(Icons.sms_outlined, color: VP.blue), SizedBox(width: 10), Expanded(child: Text('SMS · also shows in their Mere Points app', style: TextStyle(color: VP.blue, fontWeight: FontWeight.w700)))]),
         ),
         const SectionTitle('Send to'),
         ChoiceChips<String>(options: _segments, selected: {_segment}, onTap: (s) {

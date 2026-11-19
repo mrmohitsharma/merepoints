@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api.dart';
 import '../../core/format.dart';
@@ -116,12 +117,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Column(children: [
             row(Icons.swap_horiz, context.t('switch_role'), s.shops.isEmpty ? 'Own a shop? Register it here' : 'Go to ${s.shops.first.name}', s.chooseRoleAgain),
-            row(Icons.help_outline, 'Help & support', 'Missed call or chat', () => showOk(context, 'Support: give a missed call on [HELPLINE]')),
+            row(Icons.help_outline, 'Help & support', 'support@icca.co.in', () => launchUrl(Uri.parse('mailto:support@icca.co.in?subject=Mere%20Points%20help'))),
+            row(Icons.policy_outlined, 'Terms & privacy', 'merepoints.in', () => launchUrl(Uri.parse('https://merepoints.in/privacy/'), mode: LaunchMode.externalApplication)),
           ]),
         ),
         const SizedBox(height: 16),
         Center(child: TextButton(onPressed: s.signOut, child: Text(context.t('log_out'), style: const TextStyle(color: VP.red, fontSize: 16, fontWeight: FontWeight.w700)))),
+        Center(child: TextButton(onPressed: () => _deleteAccount(context, s), child: const Text('Delete my account', style: TextStyle(color: VP.muted, fontSize: 14)))),
       ]),
     );
+  }
+
+  Future<void> _deleteAccount(BuildContext context, Session s) async {
+    final c = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, set) => AlertDialog(
+          title: const Text('Delete your account?'),
+          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Your name, mobile number, UPI ID and photo are removed. Points you still have at any shop are given up and cannot be brought back. Redeem them first if you want them.'),
+            const SizedBox(height: 12),
+            TextField(controller: c, autofocus: true, textCapitalization: TextCapitalization.characters, onChanged: (_) => set(() {}), decoration: const InputDecoration(labelText: 'Type DELETE to confirm')),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep account')),
+            TextButton(onPressed: c.text.trim() == 'DELETE' ? () => Navigator.pop(ctx, true) : null, child: const Text('Delete', style: TextStyle(color: VP.red))),
+          ],
+        ),
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await context.read<ApiClient>().post('me/delete-account', {'confirm': 'DELETE'});
+      await s.signOut();
+    } catch (e) {
+      if (context.mounted) showError(context, e);
+    }
   }
 }

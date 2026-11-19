@@ -13,7 +13,7 @@ import { SchedulerService } from '../jobs/scheduler.service';
 const role = z.enum(['owner', 'ops', 'support']);
 const days = (v?: string) => Math.min(Math.max(Number(v) || 30, 7), 365);
 
-/** Username + password login for the Vyapar Point team. Separate from shop/customer OTP login. */
+/** Username + password login for the Mere Points team. Separate from shop/customer OTP login. */
 @Controller('admin/auth')
 export class AdminAuthController {
   constructor(private auth: AdminAuthService) {}

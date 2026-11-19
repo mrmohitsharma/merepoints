@@ -54,11 +54,11 @@ class _LanguageScreenState extends State<LanguageScreen> {
                 child: Container(
                   width: 64, height: 64, alignment: Alignment.center,
                   decoration: BoxDecoration(color: VP.blue, borderRadius: BorderRadius.circular(20)),
-                  child: const Text('V', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: Colors.white)),
+                  child: const Text('M', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: Colors.white)),
                 ),
               ),
               const SizedBox(height: 12),
-              const Center(child: Text('Vyapar Point', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800))),
+              const Center(child: Text('Mere Points', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800))),
               const Center(child: Text('Choose your language · अपनी भाषा चुनें', style: TextStyle(fontSize: 17, color: Color(0xFF3C4856)))),
               const SizedBox(height: 20),
               Row(children: [Expanded(child: _tile(languages[0], big: true)), const SizedBox(width: 10), Expanded(child: _tile(languages[1], big: true))]),

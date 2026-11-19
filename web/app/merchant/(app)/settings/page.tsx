@@ -150,7 +150,7 @@ export default function Settings() {
                 })}
               </div>
             </Field>
-            <Field label="Location on map" hint="Shop moved? Contact Vyapar Point support to update the pin."><MapPin lat={shop.lat} lng={shop.lng} height={180} /></Field>
+            <Field label="Location on map" hint="Shop moved? Contact Mere Points support to update the pin."><MapPin lat={shop.lat} lng={shop.lng} height={180} /></Field>
             <Button busy={busy === 'p'} onClick={saveProfile}>Save shop details</Button>
           </div>
         </Card>

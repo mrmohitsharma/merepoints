@@ -55,7 +55,7 @@ export default function Team() {
 
   return (
     <>
-      <PageHeader title="Admin team" sub="People at Vyapar Point who can log in here."
+      <PageHeader title="Admin team" sub="People at Mere Points who can log in here."
         actions={<Button onClick={() => setCreate({ username: '', name: '', role: 'support', password: tempPassword() })}><Plus size={16} /> Add person</Button>} />
       <Async state={list}>
         {(rows) => (
@@ -101,7 +101,7 @@ export default function Team() {
               <div>Username: <b>{shownPw.username}</b></div>
               <div>Password: <b>{shownPw.password}</b></div>
             </div>
-            <Button variant="secondary" onClick={() => { navigator.clipboard.writeText(`Vyapar Point admin\nUsername: ${shownPw.username}\nTemporary password: ${shownPw.password}`); toast.ok('Copied'); }}>Copy</Button>
+            <Button variant="secondary" onClick={() => { navigator.clipboard.writeText(`Mere Points admin\nUsername: ${shownPw.username}\nTemporary password: ${shownPw.password}`); toast.ok('Copied'); }}>Copy</Button>
           </div>
         )}
       </Modal>

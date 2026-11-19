@@ -125,7 +125,7 @@ class _FindCustomerScreenState extends State<FindCustomerScreen> {
             ),
             const Positioned(
               bottom: 30, left: 0, right: 0,
-              child: Text('Ask the customer to open Vyapar Point › My QR', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFFC3CCD6))),
+              child: Text('Ask the customer to open Mere Points › My QR', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFFC3CCD6))),
             ),
             if (_resolving) const Center(child: CircularProgressIndicator(color: Colors.white)),
           ]),
@@ -175,7 +175,7 @@ class _FindCustomerScreenState extends State<FindCustomerScreen> {
                 ]),
               ),
             if (_notFound) ...[
-              const InfoNote('No Vyapar Point account with this number yet.', icon: Icons.person_search_outlined),
+              const InfoNote('No Mere Points account with this number yet.', icon: Icons.person_search_outlined),
               const SizedBox(height: 12),
             ],
             if (widget.purpose == FindPurpose.earn) ...[

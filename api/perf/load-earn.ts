@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Pool } from 'pg';
 const N = Number(process.env.N ?? 3000), C = Number(process.env.C ?? 40);
 (async () => {
-  const pg = new Pool({ connectionString: 'postgres://postgres:postgres@localhost:5432/vyapar' });
+  const pg = new Pool({ connectionString: 'postgres://postgres:postgres@localhost:5432/merepoints' });
   const pairs = (await pg.query(`SELECT w.customer_id, w.shop_id, s.owner_user_id FROM wallets w JOIN shops s ON s.id = w.shop_id
                                   WHERE s.status = 'approved' ORDER BY random() LIMIT $1`, [N])).rows;
   const jwt = new JwtService({ secret: 'dev-only-change-me' });

@@ -33,7 +33,7 @@ export async function payOrder(order: Order, who: { shopName: string; shopId: nu
   return new Promise<boolean>((resolve) => {
     const rz = new window.Razorpay({
       key: order.keyId, order_id: order.orderId, amount: order.amountPaise, currency: 'INR',
-      name: 'Vyapar Point', description: `${order.description} · ${who.shopName}`,
+      name: 'Mere Points', description: `${order.description} · ${who.shopName}`,
       prefill: { contact: '+' + who.mobile, name: who.name ?? undefined },
       notes: { shop: String(who.shopId) },
       theme: { color: '#0F4C81' },

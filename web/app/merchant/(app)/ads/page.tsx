@@ -10,7 +10,7 @@ import { payOrder } from '@/lib/checkout';
 import { imageSize, uploadPhoto } from '@/lib/upload';
 import { AD_PHASE, date, inr, istToday, pts, PROFESSIONS } from '@/lib/format';
 
-/** Shop asks for a banner on customers' Home screen: fill → pay online → Vyapar Point reviews → runs. */
+/** Shop asks for a banner on customers' Home screen: fill → pay online → Mere Points reviews → runs. */
 export default function ShopAds() {
   const { shop, user } = useMerchant();
   const toast = useToast();
@@ -25,7 +25,7 @@ export default function ShopAds() {
       const order = await merchantApi.post(`shop/ads/${id}/pay`);
       const paid = await payOrder(order, { shopName: shop.name, shopId: shop.id, mobile: user.mobile, name: user.name }, async (paymentId, signature) => {
         await merchantApi.post('shop/billing/verify', { orderId: order.orderId, paymentId, signature });
-        toast.ok('Paid. Vyapar Point will review your banner, usually within a day.');
+        toast.ok('Paid. Mere Points will review your banner, usually within a day.');
       }, (m) => toast.error(m));
       if (!paid) toast.ok('Not paid yet. You can pay from this list any time.');
       ads.reload(true);
@@ -38,7 +38,7 @@ export default function ShopAds() {
 
   return (
     <>
-      <PageHeader title="Home-screen ad" sub="Show a banner on the Home screen of Vyapar Point customers near your shop. Pay online; we check it before it goes live."
+      <PageHeader title="Home-screen ad" sub="Show a banner on the Home screen of Mere Points customers near your shop. Pay online; we check it before it goes live."
         actions={<Button onClick={() => setOpen(true)}><Plus size={16} /> Book an ad</Button>} />
       <Async state={packs}>
         {(ps) => (

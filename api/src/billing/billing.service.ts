@@ -8,7 +8,7 @@ import { safeEqual } from '../common/util';
 import { billingStateSql } from './state';
 
 const rupees = (p: number) => Number(p) / 100;
-const receiptNo = () => 'VP' + randomBytes(5).toString('hex').toUpperCase();
+const receiptNo = () => 'MP' + randomBytes(5).toString('hex').toUpperCase();
 
 /**
  * Shop subscriptions and SMS packs, paid online with Razorpay.
@@ -104,7 +104,7 @@ export class BillingService {
 
   /** Creates the Razorpay order (or a test order) and the 'created' payment row. Shared by plans, SMS packs and ads. */
   async startOrder(shopId: number, userId: number, o: { kind: 'plan' | 'sms_pack' | 'ad'; amountPaise: number; name: string; planId?: number | null; smsPackId?: number | null; adId?: number | null }) {
-    if (!this.testMode && !config.razorpay.keyId) throw new AppError(503, 'PAYMENTS_OFF', 'Online payment is not set up yet. Please contact Vyapar Point.');
+    if (!this.testMode && !config.razorpay.keyId) throw new AppError(503, 'PAYMENTS_OFF', 'Online payment is not set up yet. Please contact Mere Points.');
     const receipt = receiptNo();
     let orderId: string;
     if (this.testMode) {

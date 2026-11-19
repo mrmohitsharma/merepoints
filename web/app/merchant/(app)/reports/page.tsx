@@ -19,7 +19,7 @@ export default function Reports() {
   return (
     <>
       <PageHeader title="Reports" actions={
-        <Button variant="secondary" onClick={() => downloadCsv('merchant', 'shop/reports/transactions.csv', { from, to }, `vyapar-point-${from}-to-${to}.csv`).catch(toast.error)}>
+        <Button variant="secondary" onClick={() => downloadCsv('merchant', 'shop/reports/transactions.csv', { from, to }, `mere-points-${from}-to-${to}.csv`).catch(toast.error)}>
           <Download size={16} /> All entries (CSV)
         </Button>
       } />

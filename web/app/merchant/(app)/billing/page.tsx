@@ -34,7 +34,7 @@ export default function Billing() {
       <Async state={b}>
         {(d: any) => (
           <>
-            {d.testMode && <div className="mb-4"><Note tone="amber">Payments are in <b>test mode</b>: no real money is charged until Vyapar Point connects Razorpay.</Note></div>}
+            {d.testMode && <div className="mb-4"><Note tone="amber">Payments are in <b>test mode</b>: no real money is charged until Mere Points connects Razorpay.</Note></div>}
             <div className="grid gap-4 md:grid-cols-3">
               <Card>
                 <div className="text-xs font-medium uppercase text-muted">Current plan</div>
@@ -95,7 +95,7 @@ export default function Billing() {
             {d.payments.length === 0 ? <p className="text-muted">No payments yet.</p> : (
               <Table rows={d.payments} rowKey={(r: any) => r.receipt} cols={[
                 { key: 'd', label: 'Date', render: (r: any) => date(r.paidAt) },
-                { key: 'w', label: 'For', render: (r: any) => r.kind === 'plan' ? `${r.planName} plan (till ${date(r.periodEnd)})` : r.kind === 'sms_pack' ? `${pts(r.smsAdded)} SMS` : 'Extension by Vyapar Point' },
+                { key: 'w', label: 'For', render: (r: any) => r.kind === 'plan' ? `${r.planName} plan (till ${date(r.periodEnd)})` : r.kind === 'sms_pack' ? `${pts(r.smsAdded)} SMS` : 'Extension by Mere Points' },
                 { key: 'a', label: 'Amount', align: 'right', render: (r: any) => inr(r.amountRupees) },
                 { key: 'r', label: 'Receipt', render: (r: any) => <span className="font-mono text-xs">{r.receipt}</span> },
               ]} />

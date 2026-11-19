@@ -25,7 +25,7 @@ function Login() {
   }
 
   return (
-    <AuthLayout title="Vyapar Point team" sub="Super Admin login">
+    <AuthLayout title="Mere Points team" sub="Super Admin login">
       {params.get('expired') && <div className="mb-4"><Note tone="amber">Your session ended. Please log in again.</Note></div>}
       <form onSubmit={(e) => { e.preventDefault(); submit(); }} className="space-y-4">
         <Field label="Username"><Input autoFocus autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} /></Field>

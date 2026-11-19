@@ -31,7 +31,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Future<void> _exportCsv() async {
     final r = _range;
     final csv = await context.read<ApiClient>().getRaw('shop/reports/transactions.csv', query: {'from': r.from, 'to': r.to}, shop: true);
-    await Share.shareXFiles([XFile.fromData(utf8.encode(csv), mimeType: 'text/csv', name: 'vyapar-point-${r.from}-to-${r.to}.csv')], subject: 'Vyapar Point transactions');
+    await Share.shareXFiles([XFile.fromData(utf8.encode(csv), mimeType: 'text/csv', name: 'mere-points-${r.from}-to-${r.to}.csv')], subject: 'Mere Points transactions');
   }
 
   @override

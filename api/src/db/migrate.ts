@@ -12,7 +12,7 @@ export async function migrate(databaseUrl = config.databaseUrl, opts: { reset?: 
       await c.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
     }
     // Two servers starting together: the second waits, then finds nothing left to apply.
-    await c.query('SELECT pg_advisory_lock(hashtext($1))', ['vyapar:migrate']);
+    await c.query('SELECT pg_advisory_lock(hashtext($1))', ['merepoints:migrate']);
     await c.query(`CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
     // src/db (ts-node) or dist/src/db (compiled): find the migrations folder either way.
     const dir = [join(__dirname, '..', '..', 'migrations'), join(__dirname, '..', '..', '..', 'migrations')].find((d) => existsSync(d));

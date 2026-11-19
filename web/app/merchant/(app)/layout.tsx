@@ -58,8 +58,8 @@ export default function MerchantLayout({ children }: { children: ReactNode }) {
           <h1 className="mt-3 text-xl font-bold">{shop.status === 'pending' ? 'Waiting for approval' : shop.status === 'suspended' ? 'Shop suspended' : 'Registration not approved'}</h1>
           <p className="mt-2 text-muted">
             {shop.status === 'pending'
-              ? `${shop.name} is being checked by the Vyapar Point team. This usually takes less than a day. You'll get an SMS once it's live.`
-              : shop.status_reason ?? 'Please contact Vyapar Point support.'}
+              ? `${shop.name} is being checked by the Mere Points team. This usually takes less than a day. You'll get an SMS once it's live.`
+              : shop.status_reason ?? 'Please contact Mere Points support.'}
           </p>
           <div className="mt-5 flex justify-center gap-2"><Button variant="secondary" onClick={load}>Check again</Button><Button variant="ghost" onClick={logout}>Log out</Button></div>
         </Card>

@@ -44,7 +44,7 @@ class LevelUpScreen extends StatelessWidget {
               Text('Shabaash${first.isEmpty ? '' : ' $first'}!', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
               if (level['threshold'] != null)
                 Text('You crossed $unit${pts(asNum(level['threshold']))}${basis == 'rupees' ? ' earned' : ' points'}', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
-              Text('You\'re now a $name member on Vyapar Point', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 16)),
+              Text('You\'re now a $name member on Mere Points', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 16)),
               if (perks.isNotEmpty) ...[
                 const SizedBox(height: 22),
                 Container(
@@ -89,7 +89,7 @@ class LevelUpScreen extends StatelessWidget {
               const SizedBox(height: 10),
               OutlinedButton(
                 style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white54, width: 2)),
-                onPressed: () => Share.share('I just reached $name on Vyapar Point! Collect points at shops near you: https://vyp.in/app'),
+                onPressed: () => Share.share('I just reached $name on Mere Points! Collect points at shops near you: https://merepoints.in/app'),
                 child: const Text('Share with friends'),
               ),
             ]),

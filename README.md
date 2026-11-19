@@ -1,4 +1,4 @@
-# Vyapar Point
+# Mere Points
 
 Multi-shop loyalty platform: building-material shops reward their regular customers (carpenters, painters, contractors…) with points they redeem at the same shop.
 
@@ -6,7 +6,7 @@ Multi-shop loyalty platform: building-material shops reward their regular custom
 |---|---|---|
 | `api/` | NestJS + PostgreSQL backend: points ledger, payouts, offers, billing (Razorpay), admin, background jobs | `api/README.md` |
 | `app/` | Flutter app for Android + iOS: one app with customer / shop role switch | `app/README.md` |
-| `web/` | Next.js: Shop dashboard (`/merchant`) + Super Admin (`/admin`) | `web/README.md` |
+| `web/` | Next.js: public website (`/`, `/terms`, `/privacy`, `/refunds`, `/delete-account`, `/contact`, `/get-started`) + Shop dashboard (`/merchant`) + Super Admin (`/admin`) | `web/README.md` |
 | `deploy/`, `DEPLOY-AWS.md` | AWS setup (RDS, App Runner, S3 + CloudFront, Razorpay, SMS) | `DEPLOY-AWS.md` |
 
 ## Try everything on one computer

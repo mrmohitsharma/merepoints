@@ -1,4 +1,4 @@
-# Vyapar Point app (Android + iOS)
+# Mere Points app (Android + iOS)
 
 One Flutter app with a role switch. After OTP login a person can be:
 - **Customer** (carpenter, painter, contractor…): points wallet across shops, My QR, history, nearby shops, the "Received" confirmation.

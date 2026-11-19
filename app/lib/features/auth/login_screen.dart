@@ -47,10 +47,10 @@ class _LoginScreenState extends State<LoginScreen> {
             Container(
               width: 60, height: 60, alignment: Alignment.center,
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
-              child: const Text('V', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: VP.blue)),
+              child: const Text('M', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: VP.blue)),
             ),
             const SizedBox(height: 14),
-            const Text('Vyapar Point', style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w800)),
+            const Text('Mere Points', style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w800)),
             const Text('Shops reward their regular customers.\nCustomers collect points everywhere.', style: TextStyle(color: Colors.white, fontSize: 16, height: 1.35)),
           ]),
         ),

@@ -7,7 +7,7 @@ import { ScanLine } from 'lucide-react';
 import { Async, Badge, Button, Card, PageHeader, Stat, Tabs, useAsync } from '@/components/ui';
 import { DayChart } from '@/components/charts';
 import { merchantApi } from '@/lib/api';
-import { useMerchant } from '@/lib/merchant';
+import { rateText, useMerchant } from '@/lib/merchant';
 import { ago, inr, inrShort, istDaysAgo, istToday, LEDGER, pts, PROFESSIONS } from '@/lib/format';
 
 export default function Dashboard() {
@@ -24,7 +24,7 @@ export default function Dashboard() {
     <>
       <PageHeader
         title={`Namaste${user.name ? ', ' + user.name.split(' ')[0] : ''}`}
-        sub={`${shop.loyalty.rewardPercent}% back in points · 1 point = ${inr(shop.loyalty.pointValueRupees, true)}`}
+        sub={`${rateText(shop.loyalty)} back in points · 1 point = ${inr(shop.loyalty.pointValueRupees, true)}`}
         actions={<>
           <Tabs value={range} onChange={setRange} items={[{ value: '7', label: '7 days' }, { value: '30', label: '30 days' }, { value: '90', label: '90 days' }]} />
           <Link href="/merchant/counter/"><Button><ScanLine size={16} /> Open counter</Button></Link>

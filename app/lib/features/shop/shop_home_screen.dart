@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api.dart';
 import '../../core/format.dart';
+import '../../core/points_math.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
@@ -69,7 +70,7 @@ class ShopHomeScreen extends StatelessWidget {
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text('${shop['name']}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis),
-                        Text('${role.isOwner ? 'Owner' : 'Staff'} · Loyalty ${asNum(loyalty['rewardPercent'])}% · 1 pt = ${rupees(asNum(loyalty['pointValueRupees']))}',
+                        Text('${role.isOwner ? 'Owner' : 'Staff'} · Loyalty ${rateText(loyalty)} · 1 pt = ${rupees(asNum(loyalty['pointValueRupees']))}',
                             style: const TextStyle(fontSize: 13, color: VP.muted)),
                       ]),
                     ),

@@ -83,7 +83,9 @@ function Detail() {
                 {loyalty && (
                   <Card title={`Loyalty rules (version ${loyalty.version})`}>
                     <dl className="grid gap-3 text-sm sm:grid-cols-3">
-                      <div><dt className="text-muted">Reward</dt><dd className="font-medium">{loyalty.rewardPercent}% · 1 pt = {inr(loyalty.pointValueRupees, true)}</dd></div>
+                      <div><dt className="text-muted">Reward</dt><dd className="font-medium">{loyalty.rewardSlabs
+                        ? loyalty.rewardSlabs.map((r: any, i: number) => <span key={i} className="block">{inr(r.fromRupees)}{i < loyalty.rewardSlabs.length - 1 ? `–${inr(loyalty.rewardSlabs[i + 1].fromRupees - 1)}` : '+'}: {r.percent}%</span>)
+                        : `${loyalty.rewardPercent}%`} · 1 pt = {inr(loyalty.pointValueRupees, true)}</dd></div>
                       <div><dt className="text-muted">Min bill</dt><dd>{inr(loyalty.minBillRupees)}</dd></div>
                       <div><dt className="text-muted">Max per bill</dt><dd>{loyalty.maxPointsPerBill ? pts(loyalty.maxPointsPerBill) : 'No limit'}</dd></div>
                       <div><dt className="text-muted">Redeem from</dt><dd>{pts(loyalty.minRedeemPoints)} pts</dd></div>

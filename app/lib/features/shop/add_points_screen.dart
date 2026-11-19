@@ -55,13 +55,14 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
     });
   }
 
-  ({int base, int points, bool capped})? _preview() {
+  ({int base, int points, bool capped, double percent})? _preview() {
     final cfg = _cfg;
     final amt = double.tryParse(_amount.text.replaceAll(',', ''));
     if (cfg == null || amt == null || amt <= 0) return null;
     return previewPoints(
       amountRupees: amt,
       rewardPercent: asNum(cfg['rewardPercent']),
+      slabs: RewardSlab.listFrom(cfg['rewardSlabs']),
       multiplier: _offer == null ? 1 : asNum(_offer!['multiplier']),
       maxPointsPerBill: cfg['maxPointsPerBill'] as int?,
     );
@@ -127,7 +128,7 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
               child: Row(children: [
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(pv == null ? 'Your rate: ${asNum(_cfg!['rewardPercent'])}% of bill' : '${asNum(_cfg!['rewardPercent'])}% of ${rupees(double.parse(_amount.text.replaceAll(',', '')))} = ${pts(pv.base)}',
+                    Text(pv == null ? (_cfg!['rewardSlabs'] == null ? 'Your rate: ${asNum(_cfg!['rewardPercent'])}% of bill' : 'Your rate depends on the bill amount') : '${_pctText(pv.percent)} of ${rupees(double.parse(_amount.text.replaceAll(',', '')))} = ${pts(pv.base)}',
                         style: const TextStyle(color: Color(0xFF3C4856))),
                     if (_offer != null)
                       Container(
@@ -212,3 +213,5 @@ class _CustomerBar extends StatelessWidget {
         ]),
       );
 }
+
+String _pctText(double p) => p == p.roundToDouble() ? '${p.round()}%' : '$p%';

@@ -35,7 +35,9 @@ export class AllErrorsFilter implements ExceptionFilter {
       return res.status(err.getStatus()).json(typeof body === 'string' ? { code: 'ERROR', message: body } : body);
     }
     if (err instanceof ZodError) {
-      return res.status(400).json({ code: 'VALIDATION', message: 'Some fields are not valid', details: err.flatten() });
+      // Rules written for people (custom checks, e.g. slab ranges) are shown as they are.
+      const human = err.issues.find((i) => i.code === 'custom' || (i.message && !/^(Expected|Required|Invalid|Number must|String must|Array must)/.test(i.message)));
+      return res.status(400).json({ code: 'VALIDATION', message: human?.message ?? 'Some fields are not valid', details: err.flatten() });
     }
     const mapped = err?.constraint && PG_CONSTRAINT_MAP[err.constraint];
     if (mapped) return res.status(409).json({ code: mapped[0], message: mapped[1] });

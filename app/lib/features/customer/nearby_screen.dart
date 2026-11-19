@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api.dart';
 import '../../core/format.dart';
+import '../../core/points_math.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import 'shop_profile_screen.dart';
@@ -139,7 +140,7 @@ class _NearbyScreenState extends State<NearbyScreen> {
                                   Expanded(
                                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                                       Text('${s['name']}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                                      Text('${(s['categories'] as List).take(2).map((c) => _cats[c] ?? c).join(' · ')} · ${asNum(s['rewardPercent'])}% back · 1 pt = ${rupees(asNum(s['pointValueRupees']))}',
+                                      Text('${(s['categories'] as List).take(2).map((c) => _cats[c] ?? c).join(' · ')} · ${rateText(s)} back · 1 pt = ${rupees(asNum(s['pointValueRupees']))}',
                                           style: const TextStyle(fontSize: 13, color: VP.muted)),
                                       Text(tag, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: offer != null ? VP.amberText : mine != null ? VP.blue : VP.green)),
                                     ]),

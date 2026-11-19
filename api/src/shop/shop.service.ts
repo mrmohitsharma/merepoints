@@ -5,10 +5,24 @@ import { E } from '../common/errors';
 import { config } from '../config';
 import { normalizeMobile, toPaise } from '../common/util';
 import { BillingService } from '../billing/billing.service';
+import { presentSlabs } from '../points/rate';
+
+const pct = z.number().min(0.01).max(50);                      // 5 = 5%
+
+/** Optional slabs by bill amount. Each applies from fromRupees up to the next slab; the last has no upper end. */
+export const RewardSlabsInput = z.array(z.object({ fromRupees: z.number().min(0).max(10_000_000), percent: pct }))
+  .min(2, 'Add at least two ranges, or use one flat %').max(10, 'Up to 10 ranges')
+  .superRefine((s, ctx) => {
+    if (s[0].fromRupees !== 0) ctx.addIssue({ code: 'custom', message: 'The first range must start at ₹0' });
+    for (let i = 1; i < s.length; i++) {
+      if (s[i].fromRupees <= s[i - 1].fromRupees) ctx.addIssue({ code: 'custom', message: `Range ${i + 1} must start above ₹${s[i - 1].fromRupees}` });
+    }
+  });
 
 export const LoyaltyConfigInput = z.object({
   enabled: z.boolean().default(true),
-  rewardPercent: z.number().min(0.01).max(50),                 // 5 = 5%
+  rewardPercent: pct.optional(),                                // flat %; ignored when slabs are given
+  rewardSlabs: RewardSlabsInput.nullable().default(null),
   pointValueRupees: z.number().min(0.01).max(100),              // 1 point = ₹x at this shop
   minBillRupees: z.number().min(0).default(0),
   maxPointsPerBill: z.number().int().positive().nullable().default(null),
@@ -17,7 +31,7 @@ export const LoyaltyConfigInput = z.object({
   expiryDays: z.number().int().positive().nullable().default(365),
   payoutCash: z.boolean().default(true),
   payoutUpi: z.boolean().default(true),
-});
+}).refine((l) => l.rewardSlabs || l.rewardPercent !== undefined, { message: 'Set the reward %', path: ['rewardPercent'] });
 export type LoyaltyConfigInput = z.infer<typeof LoyaltyConfigInput>;
 
 export const RegisterShopInput = z.object({
@@ -75,13 +89,16 @@ export class ShopService {
     if (l.maxRedeemPoints !== null && l.maxRedeemPoints < l.minRedeemPoints) {
       throw E.bad('BAD_CONFIG', 'Maximum per redemption must be at least the minimum to redeem');
     }
+    const slabs = l.rewardSlabs?.map((s) => ({ from_paise: toPaise(s.fromRupees), bps: Math.round(s.percent * 100) })) ?? null;
+    // reward_bps keeps the lowest slab's rate, so screens that show one number still work.
+    const flatBps = slabs ? slabs[0].bps : Math.round(l.rewardPercent! * 100);
     const row = (await c.query(
-      `INSERT INTO loyalty_configs (shop_id, version, enabled, reward_bps, point_value_paise, min_bill_paise, max_points_per_bill,
+      `INSERT INTO loyalty_configs (shop_id, version, enabled, reward_bps, reward_slabs, point_value_paise, min_bill_paise, max_points_per_bill,
                                     min_redeem_points, max_redeem_points, expiry_days, payout_cash, payout_upi, created_by)
        VALUES ($1, COALESCE((SELECT max(version) FROM loyalty_configs WHERE shop_id = $1), 0) + 1,
-               $2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+               $2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
        RETURNING id, version`,
-      [shopId, l.enabled, Math.round(l.rewardPercent * 100), toPaise(l.pointValueRupees), toPaise(l.minBillRupees),
+      [shopId, l.enabled, flatBps, slabs ? JSON.stringify(slabs) : null, toPaise(l.pointValueRupees), toPaise(l.minBillRupees),
        l.maxPointsPerBill, l.minRedeemPoints, l.maxRedeemPoints, l.expiryDays, l.payoutCash, l.payoutUpi, userId],
     )).rows[0];
     await c.query('UPDATE shops SET current_config_id = $2 WHERE id = $1', [shopId, row.id]);
@@ -110,6 +127,7 @@ export class ShopService {
       version: r.version,
       enabled: r.enabled,
       rewardPercent: r.reward_bps / 100,
+      rewardSlabs: presentSlabs(r.reward_slabs),
       pointValueRupees: r.point_value_paise / 100,
       minBillRupees: r.min_bill_paise / 100,
       maxPointsPerBill: r.max_points_per_bill,

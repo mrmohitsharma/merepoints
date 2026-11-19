@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api.dart';
 import '../../core/format.dart';
+import '../../core/points_math.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import 'shop_card_screen.dart';
@@ -62,11 +63,26 @@ class ShopProfileScreen extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(children: [
-                Expanded(child: StatTile(label: 'You earn', value: '${asNum(s['rewardPercent'])}% in points', extra: '₹${pts(asNum(ex['billRupees']))} bill = ${pts(asNum(ex['points']))} pts')),
+                Expanded(child: StatTile(label: 'You earn', value: '${rateText(s)} in points', extra: '₹${pts(asNum(ex['billRupees']))} bill = ${pts(asNum(ex['points']))} pts')),
                 const SizedBox(width: 10),
                 Expanded(child: StatTile(label: 'Redeem from', value: '${pts(asNum(s['min_redeem_points']))} pts', extra: '1 point = ${rupees(asNum(s['pointValueRupees']))} here')),
               ]),
             ),
+            if (RewardSlab.listFrom(s['rewardSlabs']) case final slabs?)
+              WhiteCard(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Bigger bill, more points', style: TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 6),
+                  for (final (i, sl) in slabs.indexed)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(children: [
+                        Expanded(child: Text(i < slabs.length - 1 ? '${rupees(sl.fromRupees)} – ${rupees(slabs[i + 1].fromRupees - 1)}' : '${rupees(sl.fromRupees)} and above')),
+                        Text('${sl.percent == sl.percent.roundToDouble() ? sl.percent.round() : sl.percent}%', style: const TextStyle(fontWeight: FontWeight.w800, color: VP.green)),
+                      ]),
+                    ),
+                ]),
+              ),
             if (offer != null)
               WhiteCard(
                 margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),

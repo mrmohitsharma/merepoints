@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/api.dart';
 import '../../core/format.dart';
 import '../../core/i18n.dart';
+import '../../core/points_math.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
@@ -95,6 +96,7 @@ class _LoyaltySettingsScreenState extends State<LoyaltySettingsScreen> {
   final _maxRedeem = TextEditingController();
   final _minBill = TextEditingController();
   int? _expiryDays;
+  List<RewardSlab>? _slabs;
 
   @override
   void initState() {
@@ -108,6 +110,7 @@ class _LoyaltySettingsScreenState extends State<LoyaltySettingsScreen> {
         _maxRedeem.text = c['maxRedeemPoints']?.toString() ?? '';
         _minBill.text = asNum(c['minBillRupees']) == 0 ? '' : '${asNum(c['minBillRupees']).round()}';
         _expiryDays = c['expiryDays'] as int?;
+        _slabs = RewardSlab.listFrom(c['rewardSlabs']);
       });
     }).catchError((e) {
       if (mounted) showError(context, e);
@@ -116,9 +119,12 @@ class _LoyaltySettingsScreenState extends State<LoyaltySettingsScreen> {
 
   Future<void> _save() async {
     final c = _c!;
+    final err = _slabs == null ? null : slabError(_slabs!);
+    if (err != null) throw ApiException(400, 'FORM', err);
     await context.read<ApiClient>().put('shop/config', {
       'enabled': c['enabled'],
       'rewardPercent': asNum(c['rewardPercent']),
+      'rewardSlabs': _slabs?.map((s) => s.toJson()).toList(),
       'pointValueRupees': asNum(c['pointValueRupees']),
       'minRedeemPoints': asNum(c['minRedeemPoints']).toInt(),
       'minBillRupees': num.tryParse(_minBill.text) ?? 0,
@@ -155,6 +161,8 @@ class _LoyaltySettingsScreenState extends State<LoyaltySettingsScreen> {
               const SizedBox(height: 16),
               LoyaltyRulesEditor(
                 percent: asNum(c['rewardPercent']).toDouble(),
+                slabs: _slabs,
+                onSlabsChanged: (s) => setState(() => _slabs = s),
                 pointValue: asNum(c['pointValueRupees']).toDouble(),
                 minRedeem: asNum(c['minRedeemPoints']).toInt(),
                 onChanged: (p, v, m) => setState(() {

@@ -5,7 +5,8 @@ import { Award, CheckCircle2, Gift, RotateCcw, Search, UserPlus } from 'lucide-r
 import { Badge, Button, Card, Field, Initials, Input, Note, PageHeader, Select, Tabs, useToast } from '@/components/ui';
 import { PayPanel } from '@/components/pay-panel';
 import { merchantApi, newKey } from '@/lib/api';
-import { useMerchant } from '@/lib/merchant';
+import { rateFor, useMerchant } from '@/lib/merchant';
+import type { Slab } from '@/lib/merchant';
 import { inr, mobile, pts, PROFESSIONS } from '@/lib/format';
 
 type Customer = {
@@ -15,14 +16,15 @@ type Customer = {
 type Offer = { id: number; name: string; multiplier: number; status: string; professions: string[] | null; ends_at: string };
 
 /** Same formula as the server, so the number shown is the number credited. */
-function preview(amount: number, pct: number, mult: number, cap: number | null) {
+function preview(amount: number, flat: number, slabs: Slab[] | null, mult: number, cap: number | null) {
+  const pct = rateFor(amount, flat, slabs);
   const paise = Math.round(amount * 100);
   const base = Math.floor((paise * Math.round(pct * 100)) / 1_000_000);
   const m = Math.round(mult * 100);
   let p = m > 100 ? Math.floor((base * m) / 100) : base;
   const capped = cap !== null && p > cap;
   if (capped) p = cap!;
-  return { base, points: p, capped };
+  return { base, points: p, capped, pct };
 }
 
 export default function Counter() {
@@ -151,7 +153,7 @@ function Earn({ cust, offer, onDone }: { cust: Customer; offer: Offer | null; on
 
   const offerApplies = offer && (!offer.professions || offer.professions.includes(cust.profession));
   const amt = Number(amount.replace(/,/g, '')) || 0;
-  const pv = useMemo(() => preview(amt, L.rewardPercent, offerApplies ? Number(offer!.multiplier) : 1, L.maxPointsPerBill), [amt, L, offerApplies, offer]);
+  const pv = useMemo(() => preview(amt, L.rewardPercent, L.rewardSlabs, offerApplies ? Number(offer!.multiplier) : 1, L.maxPointsPerBill), [amt, L, offerApplies, offer]);
   const belowMin = amt > 0 && amt < L.minBillRupees;
 
   async function submit() {
@@ -210,7 +212,7 @@ function Earn({ cust, offer, onDone }: { cust: Customer; offer: Offer | null; on
             <Field label="Invoice number (optional)" hint="The same invoice can't get points twice"><Input value={invoice} onChange={(e) => setInvoice(e.target.value)} /></Field>
           </div>
           <div className="flex items-center justify-between rounded-xl bg-ok-50 px-4 py-3">
-            <span className="text-sm text-ok">{L.rewardPercent}% of {inr(amt)}{offerApplies ? ` × ${Number(offer!.multiplier)}` : ''}{pv.capped ? ` (max ${pts(L.maxPointsPerBill)} per bill)` : ''}</span>
+            <span className="text-sm text-ok">{pv.pct}% of {inr(amt)}{offerApplies ? ` × ${Number(offer!.multiplier)}` : ''}{pv.capped ? ` (max ${pts(L.maxPointsPerBill)} per bill)` : ''}</span>
             <span className="tabular text-2xl font-bold text-ok">+{pts(belowMin ? 0 : pv.points)} pts</span>
           </div>
           <Button size="lg" className="w-full" busy={busy} disabled={!amt || belowMin || pv.points <= 0} onClick={submit}>Add {pts(pv.points)} points</Button>

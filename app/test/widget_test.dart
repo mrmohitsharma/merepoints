@@ -26,6 +26,27 @@ void main() {
     });
   });
 
+  group('slabs by bill amount (same as server)', () {
+    final slabs = [RewardSlab(0, 2), RewardSlab(10000, 5), RewardSlab(20000, 7)];
+    int p(double amt, {num mult = 1, int? cap}) => previewPoints(amountRupees: amt, rewardPercent: 2, slabs: slabs, multiplier: mult, maxPointsPerBill: cap).points;
+    test('the range sets the % for the whole bill', () {
+      expect([p(5000), p(9999), p(10000), p(15000), p(20000), p(50000)], [100, 199, 500, 750, 1400, 3500]);
+    });
+    test('offer and cap on top', () {
+      expect(p(15000, mult: 2), 1500);
+      expect(p(20000, mult: 2, cap: 2000), 2000);
+    });
+    test('range errors in words', () {
+      expect(slabError([RewardSlab(500, 2), RewardSlab(10000, 5)]), 'The first range must start at ₹0');
+      expect(slabError([RewardSlab(0, 2), RewardSlab(10000, 5), RewardSlab(8000, 7)]), contains('must start above'));
+      expect(slabError(slabs), isNull);
+    });
+    test('rate label', () {
+      expect(rateText({'rewardPercent': 2, 'rewardSlabs': [{'fromRupees': 0, 'percent': 2}, {'fromRupees': 10000, 'percent': 7.5}]}), '2–7.5%');
+      expect(rateText({'rewardPercent': 5, 'rewardSlabs': null}), '5%');
+    });
+  });
+
   group('Indian formatting', () {
     test('lakh grouping', () {
       expect(pts(175000), '1,75,000');

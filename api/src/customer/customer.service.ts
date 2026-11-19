@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { basePoints, presentSlabs, rateBpsFor } from '../points/rate';
 import { Db } from '../db/db.service';
 import { E } from '../common/errors';
 import { MilestoneService } from './milestone.service';
@@ -96,7 +97,7 @@ export class CustomerService {
   async shopCard(userId: number, shopId: number) {
     await this.requireCustomer(userId);
     const w = await this.db.one(
-      `SELECT w.*, s.name, s.logo_url, s.address_line, s.city, lc.point_value_paise, lc.reward_bps, lc.min_redeem_points
+      `SELECT w.*, s.name, s.logo_url, s.address_line, s.city, lc.point_value_paise, lc.reward_bps, lc.reward_slabs, lc.min_redeem_points
          FROM wallets w JOIN shops s ON s.id = w.shop_id JOIN loyalty_configs lc ON lc.id = s.current_config_id
         WHERE w.customer_id = $1 AND w.shop_id = $2`, [userId, shopId],
     );
@@ -106,7 +107,7 @@ export class CustomerService {
     );
     const history = await this.history(userId, { shopId, limit: 20 });
     return {
-      shop: { id: shopId, name: w.name, logoUrl: w.logo_url, address: `${w.address_line}, ${w.city}`, rewardPercent: w.reward_bps / 100, pointValueRupees: w.point_value_paise / 100 },
+      shop: { id: shopId, name: w.name, logoUrl: w.logo_url, address: `${w.address_line}, ${w.city}`, rewardPercent: w.reward_bps / 100, rewardSlabs: presentSlabs(w.reward_slabs), pointValueRupees: w.point_value_paise / 100 },
       points: Number(w.balance_points), onHold: Number(w.held_points), earned: Number(w.earned_points), redeemed: Number(w.redeemed_points),
       valueRupees: (Number(w.balance_points) * w.point_value_paise) / 100,
       minRedeem: w.min_redeem_points, canRedeem: Number(w.balance_points) >= w.min_redeem_points,
@@ -174,7 +175,7 @@ export class CustomerService {
     const rows = await this.db.many(
       `SELECT * FROM (
          SELECT s.id, s.name, s.logo_url, s.address_line, s.city, s.lat, s.lng, s.opening_hours, s.phone,
-                lc.reward_bps, lc.point_value_paise, lc.min_redeem_points,
+                lc.reward_bps, lc.reward_slabs, lc.point_value_paise, lc.min_redeem_points,
                 (SELECT array_agg(category) FROM shop_categories WHERE shop_id = s.id) AS categories,
                 (SELECT jsonb_build_object('name', name, 'multiplier', multiplier_x100 / 100.0, 'endsAt', upper(period))
                    FROM offers WHERE shop_id = s.id AND NOT cancelled AND period @> now() LIMIT 1) AS offer,
@@ -189,7 +190,7 @@ export class CustomerService {
     );
     return rows.map((s) => ({
       id: s.id, name: s.name, logoUrl: s.logo_url, address: `${s.address_line}, ${s.city}`, lat: s.lat, lng: s.lng, km: Math.round(s.km * 10) / 10,
-      categories: s.categories ?? [], rewardPercent: s.reward_bps / 100, pointValueRupees: s.point_value_paise / 100, minRedeem: s.min_redeem_points,
+      categories: s.categories ?? [], rewardPercent: s.reward_bps / 100, rewardSlabs: presentSlabs(s.reward_slabs), pointValueRupees: s.point_value_paise / 100, minRedeem: s.min_redeem_points,
       offer: s.offer, giftsFrom: s.gifts_from, myPoints: s.my_points == null ? null : Number(s.my_points), phone: s.phone, openingHours: s.opening_hours,
     }));
   }
@@ -197,7 +198,7 @@ export class CustomerService {
   async publicShop(shopId: number, userId: number | null) {
     const s = await this.db.one(
       `SELECT s.id, s.name, s.logo_url, s.address_line, s.landmark, s.city, s.state, s.pincode, s.lat, s.lng, s.phone, s.opening_hours,
-              lc.reward_bps, lc.point_value_paise, lc.min_redeem_points, lc.payout_cash, lc.payout_upi,
+              lc.reward_bps, lc.reward_slabs, lc.point_value_paise, lc.min_redeem_points, lc.payout_cash, lc.payout_upi,
               (SELECT array_agg(category) FROM shop_categories WHERE shop_id = s.id) AS categories,
               (SELECT jsonb_build_object('name', name, 'multiplier', multiplier_x100 / 100.0, 'endsAt', upper(period))
                  FROM offers WHERE shop_id = s.id AND NOT cancelled AND period @> now() LIMIT 1) AS offer,
@@ -209,8 +210,11 @@ export class CustomerService {
     if (!s) throw E.notFound('Shop');
     const gifts = await this.db.many('SELECT id, name, photo_url, points_cost FROM gifts WHERE shop_id = $1 AND active AND visible AND stock > 0 ORDER BY points_cost', [shopId]);
     return {
-      ...s, rewardPercent: s.reward_bps / 100, pointValueRupees: s.point_value_paise / 100,
-      example: { billRupees: 10000, points: Math.floor(10000 * s.reward_bps / 10000), worthRupees: Math.floor(10000 * s.reward_bps / 10000) * s.point_value_paise / 100 },
+      ...s, reward_slabs: undefined, rewardPercent: s.reward_bps / 100, rewardSlabs: presentSlabs(s.reward_slabs), pointValueRupees: s.point_value_paise / 100,
+      example: (() => {
+        const pts = basePoints(1_000_000, rateBpsFor(s, 1_000_000)); // ₹10,000 bill
+        return { billRupees: 10000, points: pts, worthRupees: (pts * s.point_value_paise) / 100 };
+      })(),
       myPoints: s.my_points == null ? null : Number(s.my_points), gifts,
     };
   }

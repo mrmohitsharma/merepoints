@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api.dart';
 import '../../core/format.dart';
+import '../../core/points_math.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
@@ -40,6 +41,7 @@ class _ShopSignupScreenState extends State<ShopSignupScreen> {
   final _pincode = TextEditingController();
   // step 4
   double _percent = 5;
+  List<RewardSlab>? _slabs;
   double _pointValue = 1;
   int _minRedeem = 500;
 
@@ -92,7 +94,7 @@ class _ShopSignupScreenState extends State<ShopSignupScreen> {
         if (!RegExp(r'^\d{6}$').hasMatch(_pincode.text.trim())) return 'Enter a 6-digit pincode';
         return null;
       default:
-        return null;
+        return _slabs == null ? null : slabError(_slabs!);
     }
   }
 
@@ -121,7 +123,7 @@ class _ShopSignupScreenState extends State<ShopSignupScreen> {
         'state': _state.text.trim(),
         'pincode': _pincode.text.trim(),
       },
-      'loyalty': {'rewardPercent': _percent, 'pointValueRupees': _pointValue, 'minRedeemPoints': _minRedeem, 'maxPointsPerBill': null, 'maxRedeemPoints': null, 'expiryDays': 365},
+      'loyalty': {'rewardPercent': _percent, 'rewardSlabs': _slabs?.map((s) => s.toJson()).toList(), 'pointValueRupees': _pointValue, 'minRedeemPoints': _minRedeem, 'maxPointsPerBill': null, 'maxRedeemPoints': null, 'expiryDays': 365},
     }) as Map<String, dynamic>;
     await session.refresh();
     await session.switchTo(ActiveRole.shop(r['id'] as int));
@@ -218,6 +220,8 @@ class _ShopSignupScreenState extends State<ShopSignupScreen> {
       default:
         return LoyaltyRulesEditor(
           percent: _percent,
+          slabs: _slabs,
+          onSlabsChanged: (s) => setState(() => _slabs = s),
           pointValue: _pointValue,
           minRedeem: _minRedeem,
           onChanged: (p, v, m) => setState(() {
@@ -272,29 +276,53 @@ class _ShopSignupScreenState extends State<ShopSignupScreen> {
 }
 
 /// Used in sign-up step 4 and in Settings: % per bill, value of 1 point, minimum to redeem.
+/// Step 4 of sign-up and Settings › Loyalty rules.
+/// Reward is either one % for every bill, or ranges by bill amount ("₹0+ 2%, ₹10,000+ 5%, ₹20,000+ 7%").
 class LoyaltyRulesEditor extends StatelessWidget {
-  const LoyaltyRulesEditor({super.key, required this.percent, required this.pointValue, required this.minRedeem, required this.onChanged});
+  const LoyaltyRulesEditor({
+    super.key, required this.percent, required this.pointValue, required this.minRedeem, required this.onChanged,
+    this.slabs, this.onSlabsChanged,
+  });
   final double percent;
   final double pointValue;
   final int minRedeem;
   final void Function(double percent, double pointValue, int minRedeem) onChanged;
+  /// null = one % for all bills.
+  final List<RewardSlab>? slabs;
+  final ValueChanged<List<RewardSlab>?>? onSlabsChanged;
 
   static const _steps = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 7.5, 8.0, 10.0, 12.0, 15.0, 20.0];
+  static String pct(double p) => p == p.roundToDouble() ? '${p.round()}%' : '$p%';
 
   @override
   Widget build(BuildContext context) {
     final i = _steps.indexWhere((s) => s >= percent);
-    final points = (10000 * percent / 100).floor();
-    String pct(double p) => p == p.roundToDouble() ? '${p.round()}%' : '$p%';
+    final byAmount = slabs != null;
+    final examples = byAmount
+        ? [for (final s in slabs!.take(3)) s.fromRupees == 0 ? 5000.0 : s.fromRupees + 5000]
+        : [10000.0];
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       const Text('1. Points per bill', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-      const SizedBox(height: 8),
-      Row(children: [
-        _RoundBtn(icon: Icons.remove, onTap: i > 0 ? () => onChanged(_steps[i - 1], pointValue, minRedeem) : null),
-        Expanded(child: Center(child: Text(pct(percent), style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w800, color: VP.blue)))),
-        _RoundBtn(icon: Icons.add, filled: true, onTap: i >= 0 && i < _steps.length - 1 ? () => onChanged(_steps[i + 1], pointValue, minRedeem) : null),
-      ]),
-      const Center(child: Text('of the bill amount, given as points', style: TextStyle(color: VP.muted))),
+      if (onSlabsChanged != null) ...[
+        const SizedBox(height: 8),
+        Segmented(
+          labels: const ['One % for all bills', '% by bill amount'],
+          index: byAmount ? 1 : 0,
+          onChanged: (i) => onSlabsChanged!(i == 1
+              ? [RewardSlab(0, percent), RewardSlab(10000, (percent + 2).clamp(0.5, 50).toDouble()), RewardSlab(20000, (percent + 4).clamp(0.5, 50).toDouble())]
+              : null),
+        ),
+      ],
+      const SizedBox(height: 10),
+      if (!byAmount) ...[
+        Row(children: [
+          _RoundBtn(icon: Icons.remove, onTap: i > 0 ? () => onChanged(_steps[i - 1], pointValue, minRedeem) : null),
+          Expanded(child: Center(child: Text(pct(percent), style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w800, color: VP.blue)))),
+          _RoundBtn(icon: Icons.add, filled: true, onTap: i >= 0 && i < _steps.length - 1 ? () => onChanged(_steps[i + 1], pointValue, minRedeem) : null),
+        ]),
+        const Center(child: Text('of the bill amount, given as points', style: TextStyle(color: VP.muted))),
+      ] else
+        SlabEditor(slabs: slabs!, onChanged: (s) => onSlabsChanged!(s)),
       const SizedBox(height: 18),
       const Text('2. Value of 1 point at your shop', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
       const SizedBox(height: 8),
@@ -310,18 +338,145 @@ class LoyaltyRulesEditor extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('What your customer gets', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF3C4856))),
           const SizedBox(height: 4),
-          Text.rich(TextSpan(style: const TextStyle(fontSize: 17, height: 1.35), children: [
-            const TextSpan(text: 'Buys for '),
-            const TextSpan(text: '₹10,000', style: TextStyle(fontWeight: FontWeight.w800)),
-            const TextSpan(text: ' → gets '),
-            TextSpan(text: '${pts(points)} points', style: const TextStyle(fontWeight: FontWeight.w800, color: VP.green)),
-            const TextSpan(text: ' worth '),
-            TextSpan(text: rupees(points * pointValue), style: const TextStyle(fontWeight: FontWeight.w800, color: VP.green)),
-          ])),
+          for (final amt in examples)
+            Builder(builder: (_) {
+              final p = previewPoints(amountRupees: amt, rewardPercent: percent, slabs: slabs);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Text.rich(TextSpan(style: const TextStyle(fontSize: 16, height: 1.35), children: [
+                  const TextSpan(text: 'Buys for '),
+                  TextSpan(text: rupees(amt), style: const TextStyle(fontWeight: FontWeight.w800)),
+                  TextSpan(text: byAmount ? ' (${pct(p.percent)})' : ''),
+                  const TextSpan(text: ' → '),
+                  TextSpan(text: '${pts(p.points)} points', style: const TextStyle(fontWeight: FontWeight.w800, color: VP.green)),
+                  const TextSpan(text: ' worth '),
+                  TextSpan(text: rupees(p.points * pointValue), style: const TextStyle(fontWeight: FontWeight.w800, color: VP.green)),
+                ])),
+              );
+            }),
           const SizedBox(height: 4),
-          Text('Your real cost: ${pct(percent * pointValue)} of sales · cash out from ${pts(minRedeem)} points (${rupees(minRedeem * pointValue)})', style: const TextStyle(fontSize: 14, color: Color(0xFF3C4856))),
+          Text(
+            byAmount
+                ? 'Your real cost: ${pct(slabs!.first.percent * pointValue)} to ${pct(slabs!.last.percent * pointValue)} of sales · cash out from ${pts(minRedeem)} points'
+                : 'Your real cost: ${pct(percent * pointValue)} of sales · cash out from ${pts(minRedeem)} points (${rupees(minRedeem * pointValue)})',
+            style: const TextStyle(fontSize: 14, color: Color(0xFF3C4856)),
+          ),
         ]),
       ),
+    ]);
+  }
+}
+
+/// Rows of "From ₹ … get … %". The first starts at ₹0; + adds a range above the last one.
+class SlabEditor extends StatefulWidget {
+  const SlabEditor({super.key, required this.slabs, required this.onChanged});
+  final List<RewardSlab> slabs;
+  final ValueChanged<List<RewardSlab>> onChanged;
+  @override
+  State<SlabEditor> createState() => _SlabEditorState();
+}
+
+class _SlabEditorState extends State<SlabEditor> {
+  late List<(TextEditingController, TextEditingController)> _rows;
+
+  @override
+  void initState() {
+    super.initState();
+    _rows = [for (final s in widget.slabs) _row(s)];
+  }
+
+  (TextEditingController, TextEditingController) _row(RewardSlab s) => (
+        TextEditingController(text: s.fromRupees.round().toString()),
+        TextEditingController(text: LoyaltyRulesEditor.pct(s.percent).replaceAll('%', '')),
+      );
+
+  @override
+  void dispose() {
+    for (final r in _rows) {
+      r.$1.dispose();
+      r.$2.dispose();
+    }
+    super.dispose();
+  }
+
+  List<RewardSlab> _values() => [
+        for (final (i, r) in _rows.indexed)
+          RewardSlab(i == 0 ? 0 : (double.tryParse(r.$1.text) ?? 0), double.tryParse(r.$2.text) ?? 0),
+      ];
+
+  void _emit() => widget.onChanged(_values());
+
+  void _add() {
+    final v = _values();
+    final last = v.last;
+    setState(() => _rows.add(_row(RewardSlab(last.fromRupees + 10000, (last.percent + 1).clamp(0.5, 50).toDouble()))));
+    _emit();
+  }
+
+  void _remove(int i) {
+    final r = _rows.removeAt(i);
+    r.$1.dispose();
+    r.$2.dispose();
+    setState(() {});
+    _emit();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final v = _values();
+    final err = slabError(v);
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      for (final (i, r) in _rows.indexed)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              flex: 5,
+              child: i == 0
+                  ? const InputDecorator(decoration: InputDecoration(labelText: 'Bill from'), child: Text('₹0', style: TextStyle(fontSize: 16)))
+                  : TextField(
+                      controller: r.$1,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: const InputDecoration(labelText: 'Bill from', prefixText: '₹ '),
+                      onChanged: (_) => _emit(),
+                    ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 3,
+              child: TextField(
+                controller: r.$2,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
+                decoration: const InputDecoration(labelText: 'Points', suffixText: '%'),
+                onChanged: (_) => _emit(),
+              ),
+            ),
+            SizedBox(
+              width: 44,
+              child: _rows.length > 2
+                  ? IconButton(onPressed: () => _remove(i), icon: const Icon(Icons.delete_outline, color: VP.muted), tooltip: 'Remove range')
+                  : null,
+            ),
+          ]),
+        ),
+      for (final (i, s) in v.indexed)
+        Text(
+          i < v.length - 1
+              ? '${rupees(s.fromRupees)} – ${rupees(v[i + 1].fromRupees > s.fromRupees ? v[i + 1].fromRupees - 1 : s.fromRupees)}: ${LoyaltyRulesEditor.pct(s.percent)}'
+              : '${rupees(s.fromRupees)} and above: ${LoyaltyRulesEditor.pct(s.percent)}',
+          style: const TextStyle(color: VP.muted, fontSize: 13),
+        ),
+      if (err != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text(err, style: const TextStyle(color: VP.red))),
+      const SizedBox(height: 6),
+      if (_rows.length < 10)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(onPressed: _add, icon: const Icon(Icons.add), label: const Text('Add range')),
+        ),
+      const SizedBox(height: 4),
+      const Text('The range a bill falls in sets the % for the whole bill.', style: TextStyle(color: VP.muted, fontSize: 13)),
     ]);
   }
 }

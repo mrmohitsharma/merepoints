@@ -3,7 +3,7 @@
 import { createContext, useContext } from 'react';
 
 export type Loyalty = {
-  version: number; enabled: boolean; rewardPercent: number; pointValueRupees: number; minBillRupees: number;
+  version: number; enabled: boolean; rewardPercent: number; rewardSlabs: Slab[] | null; pointValueRupees: number; minBillRupees: number;
   maxPointsPerBill: number | null; minRedeemPoints: number; maxRedeemPoints: number | null; expiryDays: number | null;
   payoutCash: boolean; payoutUpi: boolean;
 };
@@ -31,4 +31,30 @@ export function useMerchant() {
   const c = useContext(MerchantContext);
   if (!c) throw new Error('useMerchant outside merchant layout');
   return c;
+}
+
+export type Slab = { fromRupees: number; percent: number };
+
+/** The % for a bill: the range it falls in sets the % for the whole bill. Same as the server. */
+export function rateFor(amount: number, flat: number, slabs: Slab[] | null): number {
+  if (!slabs?.length) return flat;
+  const paise = Math.round(amount * 100);
+  let p = slabs[0].percent;
+  for (const s of slabs) if (paise >= Math.round(s.fromRupees * 100)) p = s.percent;
+  return p;
+}
+
+export function slabError(slabs: Slab[]): string | null {
+  if (slabs.length < 2) return 'Add at least two ranges, or use one % for all bills';
+  if (slabs[0].fromRupees !== 0) return 'The first range must start at ₹0';
+  for (let i = 1; i < slabs.length; i++) if (!(slabs[i].fromRupees > slabs[i - 1].fromRupees)) return `Range ${i + 1} must start above ₹${slabs[i - 1].fromRupees.toLocaleString('en-IN')}`;
+  if (slabs.some((s) => !(s.percent > 0 && s.percent <= 50))) return 'Each % must be between 0.01 and 50';
+  return null;
+}
+
+/** "5%" or "2–7%" */
+export function rateText(l: { rewardPercent: number; rewardSlabs?: Slab[] | null }) {
+  if (!l.rewardSlabs?.length) return `${l.rewardPercent}%`;
+  const ps = l.rewardSlabs.map((s) => s.percent);
+  return `${Math.min(...ps)}–${Math.max(...ps)}%`;
 }

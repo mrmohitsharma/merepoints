@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api.dart';
 import '../../core/format.dart';
+import '../../core/points_math.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import 'history_screen.dart';
@@ -38,7 +39,7 @@ class ShopCardScreen extends StatelessWidget {
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text('${shop['name']}', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
-                      Text('${asNum(shop['rewardPercent'])}% back · 1 point = ${rupees(asNum(shop['pointValueRupees']))} here', style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                      Text('${rateText(shop)} back · 1 point = ${rupees(asNum(shop['pointValueRupees']))} here', style: const TextStyle(color: Colors.white70, fontSize: 14)),
                     ]),
                   ),
                 ]),

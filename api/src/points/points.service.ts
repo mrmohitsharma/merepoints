@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { basePoints, rateBpsFor } from './rate';
 import { PoolClient } from 'pg';
 import { Db } from '../db/db.service';
 import { E } from '../common/errors';
@@ -87,8 +88,9 @@ export class PointsService {
         [shop.id, cust.profession],
       )).rows[0] ?? null;
 
-      // Points = bill × % (spec formula), then offer multiplier, then the shop's per-bill cap.
-      const base = Math.floor((amountPaise * cfg.reward_bps) / 1_000_000);
+      // Points = bill × % (the bill's slab sets the %), then offer multiplier, then the shop's per-bill cap.
+      const bps = rateBpsFor(cfg, amountPaise);
+      const base = basePoints(amountPaise, bps);
       let points = offer ? Math.floor((base * offer.multiplier_x100) / 100) : base;
       const capped = cfg.max_points_per_bill != null && points > cfg.max_points_per_bill;
       if (capped) points = cfg.max_points_per_bill;
@@ -98,9 +100,9 @@ export class PointsService {
       if (w.blocked) throw E.forbidden('CUSTOMER_BLOCKED', 'This customer is blocked at your shop');
 
       const bill = (await c.query(
-        `INSERT INTO bills (shop_id, customer_id, invoice_no, amount_paise, photo_url, config_id, offer_id, base_points, points, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
-        [shop.id, input.customerId, invoiceNo, amountPaise, input.photoUrl ?? null, cfg.id, offer?.id ?? null, base, points, staffId],
+        `INSERT INTO bills (shop_id, customer_id, invoice_no, amount_paise, photo_url, config_id, offer_id, base_points, points, created_by, reward_bps)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+        [shop.id, input.customerId, invoiceNo, amountPaise, input.photoUrl ?? null, cfg.id, offer?.id ?? null, base, points, staffId, bps],
       )).rows[0];
 
       const out = await this.credit(c, {
@@ -112,7 +114,7 @@ export class PointsService {
 
       return {
         entryId: out.entry.public_id, points, basePoints: base, capped,
-        rate: { rewardPercent: cfg.reward_bps / 100, multiplier: offer ? offer.multiplier_x100 / 100 : 1, offerName: offer?.name ?? null },
+        rate: { rewardPercent: bps / 100, slabbed: !!cfg.reward_slabs, multiplier: offer ? offer.multiplier_x100 / 100 : 1, offerName: offer?.name ?? null },
         valueRupees: (points * cfg.point_value_paise) / 100, balance: out.balanceAfter, newCustomerAtShop: created,
         milestoneCrossed: out.milestoneCrossed, createdAt: out.entry.created_at,
       };

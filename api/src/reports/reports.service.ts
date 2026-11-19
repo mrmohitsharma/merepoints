@@ -110,7 +110,7 @@ export class ReportsService {
       params.push(digits.length >= 4 ? `%${digits}` : `${q.search.toLowerCase()}%`);
       where += digits.length >= 4 ? ` AND u.mobile LIKE $${params.length}` : ` AND lower(u.name) LIKE $${params.length}`;
     }
-    if (q.profession) { params.push(q.profession); where += ` AND c.profession = $${params.length}::profession`; }
+    if (q.profession) { params.push(q.profession); where += ` AND c.profession = $${params.length}`; }
     params.push(Math.min(q.limit ?? 50, 200), q.offset ?? 0);
     return this.db.many(
       `SELECT u.id, u.name, u.mobile, c.profession, w.balance_points, w.held_points, w.earned_points, w.redeemed_points,

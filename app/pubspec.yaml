@@ -21,6 +21,7 @@ dependencies:
   url_launcher: ^6.3.0          # UPI apps, phone calls, maps
   share_plus: ^10.1.4           # share CSV reports
   intl: any                     # version pinned by flutter_localizations
+  image_picker: ^1.1.2          # product / ad photos (camera or gallery)
 
 dev_dependencies:
   flutter_test:

@@ -29,6 +29,10 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
   Map<String, dynamic>? _cfg;
   Map<String, dynamic>? _offer;
   bool _canManual = false;
+  // Earn-more products the shop gives bonus points for; qty ticked at the counter.
+  List<Map<String, dynamic>> _bonusProducts = [];
+  final _qty = <int, int>{};
+  int get _bonus => _bonusProducts.fold(0, (a, p) => a + (_qty[p['id'] as int] ?? 0) * asNum(p['bonus_points']).toInt());
   // One key per screen visit: if the network drops and the button is pressed again,
   // the server returns the first result instead of adding points twice.
   final _idemKey = ApiClient.newIdempotencyKey();
@@ -53,6 +57,9 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
     }).catchError((e) {
       if (mounted) showError(context, e);
     });
+    api.sget('products/bonus').then((r) {
+      if (mounted) setState(() => _bonusProducts = (r as List).cast<Map<String, dynamic>>());
+    }).catchError((_) {});
   }
 
   ({int base, int points, bool capped, double percent})? _preview() {
@@ -79,6 +86,7 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
         'customerId': customerId,
         'amountRupees': amt,
         if (_invoice.text.trim().isNotEmpty) 'invoiceNo': _invoice.text.trim(),
+        if (_bonus > 0) 'items': [for (final e in _qty.entries.where((e) => e.value > 0)) {'productId': e.key, 'qty': e.value}],
       }, _idemKey) as Map<String, dynamic>;
     } else {
       final p = int.tryParse(_manualPts.text);
@@ -141,11 +149,28 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
                   ]),
                 ),
                 Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  Text('+${pts(pv?.points ?? 0)}', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: VP.green)),
-                  Text('points = ${rupees((pv?.points ?? 0) * pointValue)}', style: const TextStyle(fontSize: 13, color: VP.green, fontWeight: FontWeight.w600)),
+                  Text('+${pts((pv?.points ?? 0) + _bonus)}', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: VP.green)),
+                  if (_bonus > 0) Text('${pts(pv?.points ?? 0)} bill + ${pts(_bonus)} bonus', style: const TextStyle(fontSize: 12, color: VP.green, fontWeight: FontWeight.w700)),
+                  Text('points = ${rupees(((pv?.points ?? 0) + _bonus) * pointValue)}', style: const TextStyle(fontSize: 13, color: VP.green, fontWeight: FontWeight.w600)),
                 ]),
               ]),
             ),
+          if (_bonusProducts.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Row(children: [
+              const Text('Bonus products in this bill', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+              const Spacer(),
+              if (_bonus > 0) Text('+${pts(_bonus)} pts', style: const TextStyle(color: VP.green, fontWeight: FontWeight.w800)),
+            ]),
+            const Text('Fixed points on top of the bill. Offers and the per-bill cap do not change them.', style: TextStyle(fontSize: 13, color: VP.muted)),
+            const SizedBox(height: 6),
+            for (final p in _bonusProducts)
+              _BonusRow(
+                product: p,
+                qty: _qty[p['id'] as int] ?? 0,
+                onChanged: (q) => setState(() => _qty[p['id'] as int] = q),
+              ),
+          ],
           const SizedBox(height: 14),
           TextField(controller: _invoice, decoration: const InputDecoration(labelText: 'Invoice no. (stops double entry)')),
           const SizedBox(height: 10),
@@ -181,10 +206,56 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
       ]),
       bottomNavigationBar: BottomAction(
         child: BusyButton(
-          label: _mode == 0 ? (pv == null ? 'Add points' : 'Add ${pts(pv.points)} points') : 'Add ${_manualPts.text.isEmpty ? '' : '${_manualPts.text} '}points',
+          label: _mode == 0 ? (pv == null ? 'Add points' : 'Add ${pts(pv.points + _bonus)} points') : 'Add ${_manualPts.text.isEmpty ? '' : '${_manualPts.text} '}points',
           onPressed: _submit,
         ),
       ),
+    );
+  }
+}
+
+/// One earn-more product with − qty + stepper.
+class _BonusRow extends StatelessWidget {
+  const _BonusRow({required this.product, required this.qty, required this.onChanged});
+  final Map<String, dynamic> product;
+  final int qty;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final each = asNum(product['bonus_points']).toInt();
+    return Container(
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+      decoration: BoxDecoration(color: qty > 0 ? VP.greenSoft : VP.ground, borderRadius: BorderRadius.circular(14)),
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${product['name']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
+            Text('+$each per ${product['unit'] ?? 'piece'}${qty > 0 ? ' · ${pts(each * qty)} pts' : ''}', style: TextStyle(fontSize: 13, color: qty > 0 ? VP.green : VP.muted, fontWeight: FontWeight.w600)),
+          ]),
+        ),
+        IconButton.filledTonal(onPressed: qty > 0 ? () => onChanged(qty - 1) : null, icon: const Icon(Icons.remove)),
+        SizedBox(
+          width: 44,
+          child: GestureDetector(
+            onTap: () async {
+              final c = TextEditingController(text: qty == 0 ? '' : '$qty');
+              final v = await showDialog<int>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: Text('${product['name']}'),
+                  content: TextField(controller: c, autofocus: true, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: const InputDecoration(labelText: 'Quantity')),
+                  actions: [TextButton(onPressed: () => Navigator.pop(ctx, int.tryParse(c.text) ?? 0), child: const Text('OK'))],
+                ),
+              );
+              if (v != null) onChanged(v.clamp(0, 10000));
+            },
+            child: Text('$qty', textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+          ),
+        ),
+        IconButton.filled(style: IconButton.styleFrom(backgroundColor: VP.green), onPressed: () => onChanged(qty + 1), icon: const Icon(Icons.add)),
+      ]),
     );
   }
 }

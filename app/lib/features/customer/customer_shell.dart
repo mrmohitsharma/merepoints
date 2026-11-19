@@ -5,10 +5,10 @@ import '../../core/theme.dart';
 import 'customer_home_screen.dart';
 import 'history_screen.dart';
 import 'my_qr_screen.dart';
-import 'nearby_screen.dart';
+import 'explore_screen.dart';
 import 'profile_screen.dart';
 
-/// Customer side: Home, Shops, [My QR], History, Profile.
+/// Customer side: Home, Explore (Shops | Products), [My QR], History, Profile.
 class CustomerShell extends StatefulWidget {
   const CustomerShell({super.key});
   @override
@@ -17,12 +17,28 @@ class CustomerShell extends StatefulWidget {
 
 class _CustomerShellState extends State<CustomerShell> {
   int _tab = 0;
+  final _exploreTab = ValueNotifier<int>(0);
+
+  @override
+  void dispose() {
+    _exploreTab.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final pages = <Widget>[
-      CustomerHomeScreen(onFindShops: () => setState(() => _tab = 1)),
-      const NearbyScreen(),
+      CustomerHomeScreen(
+        onFindShops: () => setState(() {
+          _exploreTab.value = 0;
+          _tab = 1;
+        }),
+        onSeeAllProducts: () => setState(() {
+          _exploreTab.value = 1;
+          _tab = 1;
+        }),
+      ),
+      ExploreScreen(tab: _exploreTab),
       const SizedBox.shrink(),
       const HistoryScreen(),
       const ProfileScreen(),
@@ -59,7 +75,7 @@ class _CustomerShellState extends State<CustomerShell> {
         shape: const CircularNotchedRectangle(),
         child: Row(children: [
           nav(0, Icons.home_outlined, context.t('home')),
-          nav(1, Icons.location_on_outlined, context.t('shops')),
+          nav(1, Icons.explore_outlined, context.t('explore')),
           const Expanded(child: SizedBox()),
           nav(3, Icons.list_alt, context.t('history')),
           nav(4, Icons.person_outline, context.t('profile')),

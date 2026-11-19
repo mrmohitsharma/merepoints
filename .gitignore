@@ -18,3 +18,4 @@ web/.next/
 web/out/
 web/.env.local
 web/tsconfig.tsbuildinfo
+api/uploads/

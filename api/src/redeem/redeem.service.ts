@@ -44,7 +44,7 @@ export class RedeemService {
       if (input.method === 'gift') {
         if (!input.giftId) throw E.bad('GIFT_REQUIRED', 'Pick a gift');
         // Read first (no lock) to know the cost; the stock lock comes after lots in lock order.
-        gift = (await c.query('SELECT id, name, points_cost, active, available_until FROM gifts WHERE id = $1 AND shop_id = $2', [input.giftId, shop.id])).rows[0];
+        gift = (await c.query(`SELECT id, name, points_cost, active, available_until FROM products WHERE id = $1 AND shop_id = $2 AND kind = 'redeem'`, [input.giftId, shop.id])).rows[0];
         if (!gift || !gift.active) throw E.notFound('Gift');
         if (gift.available_until && new Date(gift.available_until) < new Date(new Date().toDateString())) throw E.bad('GIFT_ENDED', 'This gift is no longer available');
         points = gift.points_cost;
@@ -60,7 +60,7 @@ export class RedeemService {
 
       const { taken, valuePaise } = await consumeLots(c, input.customerId, shop.id, points);
       if (gift) {
-        const g = await c.query('UPDATE gifts SET stock = stock - 1 WHERE id = $1 AND stock > 0 RETURNING stock', [gift.id]);
+        const g = await c.query('UPDATE products SET stock = stock - 1 WHERE id = $1 AND stock > 0 RETURNING stock', [gift.id]);
         if (!g.rowCount) throw E.conflict('OUT_OF_STOCK', 'This gift is out of stock');
       }
       const r = (await c.query(
@@ -152,7 +152,7 @@ export class RedeemService {
       [r.customer_id, r.shop_id, r.points],
     );
     await c.query(`UPDATE redemptions SET status = 'confirmed', confirm_channel = $2, closed_at = now(), otp_hash = NULL WHERE id = $1`, [r.id, channel]);
-    if (r.gift_id) await c.query('UPDATE gifts SET given_count = given_count + 1 WHERE id = $1', [r.gift_id]);
+    if (r.gift_id) await c.query('UPDATE products SET given_count = given_count + 1 WHERE id = $1', [r.gift_id]);
     const e = await writeLedger(c, {
       prefix: 'RC', shopId: r.shop_id, customerId: r.customer_id, type: 'redeem_confirm', points: 0, valuePaise: r.value_paise,
       balanceAfter: w.balance_points, redemptionId: r.id, reason: `Received (${channel})`, createdBy: null,
@@ -196,7 +196,7 @@ export class RedeemService {
     for (const l of lots) await c.query('UPDATE point_lots SET points_remaining = points_remaining + $2 WHERE id = $1', [l.lot_id, l.points]);
     const balanceAfter = w.balance_points + r.points;
     await c.query('UPDATE wallets SET balance_points = $3, held_points = held_points - $4 WHERE customer_id = $1 AND shop_id = $2', [r.customer_id, r.shop_id, balanceAfter, r.points]);
-    if (r.gift_id) await c.query('UPDATE gifts SET stock = stock + 1 WHERE id = $1', [r.gift_id]);
+    if (r.gift_id) await c.query('UPDATE products SET stock = stock + 1 WHERE id = $1', [r.gift_id]);
     await c.query(`UPDATE redemptions SET status = 'cancelled', closed_at = now(), otp_hash = NULL WHERE id = $1`, [r.id]);
     await writeLedger(c, {
       prefix: 'RL', shopId: r.shop_id, customerId: r.customer_id, type: 'redeem_release', points: r.points, valuePaise: r.value_paise,
@@ -212,7 +212,7 @@ export class RedeemService {
               r.confirm_channel, r.dispute_note, r.created_at, r.paid_at, r.closed_at,
               u.name AS customer_name, u.mobile AS customer_mobile, g.name AS gift_name,
               (SELECT balance_points FROM wallets w WHERE w.customer_id = r.customer_id AND w.shop_id = r.shop_id) AS balance_left
-         FROM redemptions r JOIN users u ON u.id = r.customer_id LEFT JOIN gifts g ON g.id = r.gift_id
+         FROM redemptions r JOIN users u ON u.id = r.customer_id LEFT JOIN products g ON g.id = r.gift_id
         WHERE r.public_id = $1 AND r.shop_id = $2`, [rid, shopId],
     );
     if (!r) throw E.notFound('Redemption');
@@ -223,7 +223,7 @@ export class RedeemService {
     return this.db.many(
       `SELECT r.public_id AS id, r.status, r.method, r.points, r.value_paise / 100.0 AS value_rupees, r.upi_id, r.payment_ref, r.dispute_note,
               r.created_at, r.paid_at, u.name AS customer_name, u.mobile AS customer_mobile, g.name AS gift_name
-         FROM redemptions r JOIN users u ON u.id = r.customer_id LEFT JOIN gifts g ON g.id = r.gift_id
+         FROM redemptions r JOIN users u ON u.id = r.customer_id LEFT JOIN products g ON g.id = r.gift_id
         WHERE r.shop_id = $1 AND r.status = ANY($2::redemption_status[]) ORDER BY r.created_at DESC LIMIT 100`, [shopId, statuses],
     );
   }
@@ -233,7 +233,7 @@ export class RedeemService {
     return this.db.many(
       `SELECT r.public_id AS id, r.status, r.method, r.points, r.value_paise / 100.0 AS value_rupees, r.upi_id, r.paid_at,
               s.id AS shop_id, s.name AS shop_name, s.logo_url, g.name AS gift_name
-         FROM redemptions r JOIN shops s ON s.id = r.shop_id LEFT JOIN gifts g ON g.id = r.gift_id
+         FROM redemptions r JOIN shops s ON s.id = r.shop_id LEFT JOIN products g ON g.id = r.gift_id
         WHERE r.customer_id = $1 AND r.status IN ('held','paid') ORDER BY r.created_at`, [customerId],
     );
   }

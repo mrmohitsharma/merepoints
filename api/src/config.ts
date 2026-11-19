@@ -20,6 +20,14 @@ export const config = {
     keySecret: process.env.RAZORPAY_KEY_SECRET ?? '',
     webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET ?? '',
   },
+  /** This API's public address, used in links it hands out (local uploads). */
+  publicApiUrl: process.env.PUBLIC_API_URL ?? `http://localhost:${process.env.PORT ?? 3000}/v1`,
+  uploads: {
+    bucket: process.env.S3_BUCKET ?? '',
+    region: process.env.AWS_REGION ?? 'ap-south-1',
+    publicBaseUrl: process.env.S3_PUBLIC_BASE_URL ?? '',
+    localDir: process.env.UPLOADS_DIR ?? './uploads',
+  },
   /** Web app origins allowed to call the API (comma separated). Empty = allow all (dev). */
   corsOrigins: (process.env.CORS_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
 };

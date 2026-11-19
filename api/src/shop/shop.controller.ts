@@ -8,8 +8,10 @@ import { PointsService } from '../points/points.service';
 import { RedeemService } from '../redeem/redeem.service';
 import { OffersService, Segment } from '../offers/offers.service';
 import { ReportsService } from '../reports/reports.service';
+import { ProductInput, ProductsService } from '../products/products.service';
 
-const professions = ['carpenter', 'painter', 'interior_designer', 'contractor', 'architect', 'plumber', 'electrician', 'other'] as const;
+/** Work type code; the list lives in the professions table (editable by Super Admin). */
+const profession = z.string().regex(/^[a-z][a-z0-9_]{1,29}$/);
 
 @Controller('shops')
 export class ShopRegisterController {
@@ -25,6 +27,12 @@ export class ShopRegisterController {
   categories() {
     return this.db.many('SELECT code, name FROM categories WHERE active ORDER BY sort');
   }
+
+  /** Work types for sign-up pickers and offer targeting. Editable by Super Admin. */
+  @Public() @Get('professions')
+  professions() {
+    return this.db.many(`SELECT code, name, name_hi AS "nameHi" FROM professions WHERE active ORDER BY sort, name`);
+  }
 }
 
 /** Everything below needs header X-Shop-Id. */
@@ -32,7 +40,7 @@ export class ShopRegisterController {
 export class ShopController {
   constructor(
     private shops: ShopService, private points: PointsService, private redeem: RedeemService,
-    private offers: OffersService, private reports: ReportsService,
+    private offers: OffersService, private reports: ReportsService, private productsSvc: ProductsService,
   ) {}
 
   // ---------------------------------------------------------------- profile & settings
@@ -89,7 +97,7 @@ export class ShopController {
   @ShopRoute({ perm: 'canAddPoints', writes: true }) @Post('customers')
   quickAdd(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Body() body: unknown) {
     return this.points.quickAddCustomer(s.id, u.id, parse(z.object({
-      mobile: z.string(), name: z.string().min(2), profession: z.enum(professions).optional(), upiId: z.string().optional(), city: z.string().optional(),
+      mobile: z.string(), name: z.string().min(2), profession: profession.optional(), upiId: z.string().optional(), city: z.string().optional(),
     }), body));
   }
 
@@ -116,6 +124,7 @@ export class ShopController {
     return this.points.earnBill(s, u.id, parse(z.object({
       customerId: z.number().int().positive(), amountRupees: z.number().positive().max(10_000_000),
       invoiceNo: z.string().max(40).optional(), photoUrl: z.string().url().optional(),
+      items: z.array(z.object({ productId: z.number().int().positive(), qty: z.number().int().min(1).max(10_000) })).max(30).optional(),
     }), body), key);
   }
 
@@ -185,7 +194,7 @@ export class ShopController {
   createOffer(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Body() body: unknown) {
     return this.offers.createOffer(s.id, u.id, parse(z.object({
       name: z.string().min(2).max(60), multiplier: z.number(), startsAt: z.string().datetime({ offset: true }), endsAt: z.string().datetime({ offset: true }),
-      professions: z.array(z.enum(professions)).nullable().optional(),
+      professions: z.array(profession).nullable().optional(),
     }), body));
   }
 
@@ -203,6 +212,21 @@ export class ShopController {
       id: z.number().int().optional(), name: z.string().min(2).max(60), pointsCost: z.number().int().positive(), stock: z.number().int().min(0),
       photoUrl: z.string().url().optional(), availableUntil: z.string().nullable().optional(), visible: z.boolean().optional(), active: z.boolean().optional(),
     }), body));
+  }
+
+  // ---------------------------------------------------------------- products (redeem + earn more)
+  @ShopRoute() @Get('products')
+  products(@CurrentShop() s: ShopCtx, @Query('kind') kind?: string) {
+    return this.productsSvc.list(s.id, kind === 'redeem' || kind === 'earn' ? kind : undefined);
+  }
+
+  /** Earn-more products for the counter's bonus steppers. Any staff who can add points. */
+  @ShopRoute({ perm: 'canAddPoints' }) @Get('products/bonus')
+  bonusProducts(@CurrentShop() s: ShopCtx) { return this.productsSvc.counterBonusList(s.id); }
+
+  @ShopRoute({ owner: true }) @Post('products')
+  upsertProduct(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Body() body: unknown) {
+    return this.productsSvc.upsert(s.id, u.id, parse(ProductInput, body));
   }
 
   @ShopRoute({ owner: true }) @Get('messages/count')

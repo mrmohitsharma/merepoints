@@ -46,9 +46,11 @@ lib/
     auth/      language, mobile/Google login, OTP, role picker, customer sign-up, 4-step shop sign-up (GPS required)
     shop/      home, find customer (QR / mobile / quick add), add points, points added + reverse,
                redeem → pay → wait for Received (+ SMS OTP), customers, entries, settings, loyalty rules,
-               staff, offers & gifts, message customers, reports + CSV
-    customer/  home (wallet, 3 milestone tiles, shop cards, Received popup), My QR (rotates every minute),
-               shop card, history, nearby shops, shop profile, profile, level-up
+               staff, offers, products (redeem gifts + earn-more bonus, with photos), bonus steppers at the counter,
+               message customers, reports + CSV
+    customer/  home (wallet, 3 milestone tiles, shop cards, ad carousel, products 6 at a time + Load more,
+               Received popup), My QR (rotates every minute), Explore (Shops | Products tabs), product detail,
+               shop card (Redeem | Earn more), history, shop profile, profile, level-up
 ```
 
 ## Behaviour worth knowing
@@ -56,6 +58,8 @@ lib/
 - **No double points on bad networks:** add-points sends an idempotency key per screen visit. Pressing again after a timeout returns the first result.
 - **Received rule:** the shop's Pay screen polls the redemption every 3 s and moves on the moment the customer taps Received. The customer app checks for pending confirmations every 15 s and when it comes to the foreground.
 - **Points preview:** `core/points_math.dart` mirrors the server formula exactly, and is covered by tests.
+- **Work types** come from the API at start (`shops/professions`); the built-in list is the offline fallback.
+- **Ads** show without an "Ad" label (product decision). Views count once per banner per app session, taps every time.
 - **Languages:** English and Hindi strings are complete for the main flows. Tamil, Bengali, Kannada, Malayalam, Gujarati and Punjabi are selectable and fall back to English until their strings are added to `core/i18n.dart`.
 
 ## To finish before launch
@@ -64,7 +68,7 @@ lib/
 |---|---|
 | Push notifications (FCM) for "Did you receive?" | replace the 15 s poll in `customer_home_screen.dart` |
 | Google sign-in | `login_screen.dart` `_google()` + server `googleVerifier` |
-| Photo upload (logo, bill, gift) | currently a link field; add S3/GCS upload |
+| Photo upload for shop logo and bill photo | product photos already upload (`core/upload.dart`); reuse it |
 | Map view on Nearby | list works now; add `google_maps_flutter` + API key |
 | Translations for 6 regional languages | `core/i18n.dart` |
 | Mukta font (Hindi + English) | `pubspec.yaml` fonts section + `theme.dart` |

@@ -1,3 +1,4 @@
+import { ProductsService } from '../products/products.service';
 import { Injectable } from '@nestjs/common';
 import { basePoints, presentSlabs, rateBpsFor } from '../points/rate';
 import { Db } from '../db/db.service';
@@ -10,7 +11,7 @@ const LANGS = ['en', 'hi', 'ta', 'bn', 'kn', 'ml', 'gu', 'pa'] as const;
 
 @Injectable()
 export class CustomerService {
-  constructor(private db: Db, private milestones: MilestoneService, private redeem: RedeemService) {}
+  constructor(private db: Db, private milestones: MilestoneService, private redeem: RedeemService, private products: ProductsService) {}
 
   async register(userId: number, p: { name: string; profession: string; city?: string; upiId?: string; language?: string; photoUrl?: string }) {
     if (p.language && !LANGS.includes(p.language as any)) throw E.bad('BAD_LANGUAGE', 'Language not supported');
@@ -19,7 +20,7 @@ export class CustomerService {
       await c.query('UPDATE users SET name = $2 WHERE id = $1', [userId, p.name]);
       // upi_verified_name: filled by a VPA-validation call (payment provider) in production.
       await c.query(
-        `INSERT INTO customers (user_id, profession, city, upi_id, language, photo_url) VALUES ($1,$2::profession,$3,$4,COALESCE($5,'en'),$6)
+        `INSERT INTO customers (user_id, profession, city, upi_id, language, photo_url) VALUES ($1,$2,$3,$4,COALESCE($5,'en'),$6)
          ON CONFLICT (user_id) DO UPDATE SET profession = EXCLUDED.profession, city = COALESCE(EXCLUDED.city, customers.city),
            upi_id = COALESCE(EXCLUDED.upi_id, customers.upi_id), language = EXCLUDED.language, photo_url = COALESCE(EXCLUDED.photo_url, customers.photo_url)`,
         [userId, p.profession, p.city ?? null, p.upiId ?? null, p.language ?? null, p.photoUrl ?? null],
@@ -34,7 +35,7 @@ export class CustomerService {
     const r = await this.db.pool.query(
       `UPDATE customers SET upi_id = COALESCE($2, upi_id), upi_verified_name = CASE WHEN $2 IS NULL THEN upi_verified_name ELSE NULL END,
               language = COALESCE($3, language), sms_on_earn = COALESCE($4, sms_on_earn),
-              profession = COALESCE($5::profession, profession), city = COALESCE($6, city)
+              profession = COALESCE($5, profession), city = COALESCE($6, city)
         WHERE user_id = $1`, [userId, p.upiId ?? null, p.language ?? null, p.smsOnEarn ?? null, p.profession ?? null, p.city ?? null],
     );
     if (!r.rowCount) throw E.notFound('Customer profile');
@@ -62,7 +63,7 @@ export class CustomerService {
               lc.point_value_paise, lc.min_redeem_points, lc.reward_bps,
               o.name AS offer_name, o.multiplier_x100, upper(o.period) AS offer_ends,
               exp.points AS expiring_points, exp.first_at AS expiring_at,
-              (SELECT min(g.points_cost) FROM gifts g WHERE g.shop_id = w.shop_id AND g.active AND g.visible AND g.stock > 0 AND g.points_cost <= w.balance_points) AS cheapest_affordable_gift
+              (SELECT min(g.points_cost) FROM products g WHERE g.shop_id = w.shop_id AND g.kind = 'redeem' AND g.active AND g.visible AND g.stock > 0 AND g.points_cost <= w.balance_points) AS cheapest_affordable_gift
          FROM wallets w
          JOIN shops s ON s.id = w.shop_id
          JOIN loyalty_configs lc ON lc.id = s.current_config_id
@@ -103,15 +104,16 @@ export class CustomerService {
     );
     if (!w) throw E.notFound('Points card at this shop');
     const gifts = await this.db.many(
-      `SELECT id, name, photo_url, points_cost, stock > 0 AS in_stock FROM gifts WHERE shop_id = $1 AND active AND visible ORDER BY points_cost`, [shopId],
+      `SELECT id, name, photo_url, points_cost, stock > 0 AS in_stock FROM products WHERE shop_id = $1 AND kind = 'redeem' AND active AND visible ORDER BY points_cost`, [shopId],
     );
-    const history = await this.history(userId, { shopId, limit: 20 });
+    const [history, products] = await Promise.all([this.history(userId, { shopId, limit: 20 }), this.products.forShop(shopId, userId)]);
     return {
       shop: { id: shopId, name: w.name, logoUrl: w.logo_url, address: `${w.address_line}, ${w.city}`, rewardPercent: w.reward_bps / 100, rewardSlabs: presentSlabs(w.reward_slabs), pointValueRupees: w.point_value_paise / 100 },
       points: Number(w.balance_points), onHold: Number(w.held_points), earned: Number(w.earned_points), redeemed: Number(w.redeemed_points),
       valueRupees: (Number(w.balance_points) * w.point_value_paise) / 100,
       minRedeem: w.min_redeem_points, canRedeem: Number(w.balance_points) >= w.min_redeem_points,
       gifts: gifts.map((g) => ({ ...g, canTake: g.in_stock && Number(w.balance_points) >= g.points_cost, needMore: Math.max(0, g.points_cost - Number(w.balance_points)) })),
+      products: { redeem: products.filter((p) => p.kind === 'redeem'), earn: products.filter((p) => p.kind === 'earn') },
       history: history.items,
     };
   }
@@ -179,7 +181,7 @@ export class CustomerService {
                 (SELECT array_agg(category) FROM shop_categories WHERE shop_id = s.id) AS categories,
                 (SELECT jsonb_build_object('name', name, 'multiplier', multiplier_x100 / 100.0, 'endsAt', upper(period))
                    FROM offers WHERE shop_id = s.id AND NOT cancelled AND period @> now() LIMIT 1) AS offer,
-                (SELECT min(points_cost) FROM gifts WHERE shop_id = s.id AND active AND visible AND stock > 0) AS gifts_from,
+                (SELECT min(points_cost) FROM products WHERE shop_id = s.id AND kind = 'redeem' AND active AND visible AND stock > 0) AS gifts_from,
                 w.balance_points AS my_points,
                 6371 * 2 * asin(sqrt(power(sin(radians(s.lat - $1) / 2), 2) + cos(radians($1)) * cos(radians(s.lat)) * power(sin(radians(s.lng - $2) / 2), 2))) AS km
            FROM shops s
@@ -208,7 +210,7 @@ export class CustomerService {
         WHERE s.id = $1 AND s.status = 'approved'`, [shopId, userId ?? 0],
     );
     if (!s) throw E.notFound('Shop');
-    const gifts = await this.db.many('SELECT id, name, photo_url, points_cost FROM gifts WHERE shop_id = $1 AND active AND visible AND stock > 0 ORDER BY points_cost', [shopId]);
+    const gifts = await this.db.many(`SELECT id, name, photo_url, points_cost FROM products WHERE shop_id = $1 AND kind = 'redeem' AND active AND visible AND stock > 0 ORDER BY points_cost`, [shopId]);
     return {
       ...s, reward_slabs: undefined, rewardPercent: s.reward_bps / 100, rewardSlabs: presentSlabs(s.reward_slabs), pointValueRupees: s.point_value_paise / 100,
       example: (() => {
@@ -216,6 +218,7 @@ export class CustomerService {
         return { billRupees: 10000, points: pts, worthRupees: (pts * s.point_value_paise) / 100 };
       })(),
       myPoints: s.my_points == null ? null : Number(s.my_points), gifts,
+      products: await this.products.forShop(shopId, userId).then((ps) => ({ redeem: ps.filter((p) => p.kind === 'redeem'), earn: ps.filter((p) => p.kind === 'earn') })),
     };
   }
 }

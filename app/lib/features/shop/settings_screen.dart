@@ -13,6 +13,7 @@ import '../auth/language_screen.dart';
 import '../auth/shop_signup_screen.dart';
 import 'message_screen.dart';
 import 'offers_screen.dart';
+import 'products_screen.dart';
 import 'staff_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -44,7 +45,8 @@ class SettingsScreen extends StatelessWidget {
       body: ListView(padding: const EdgeInsets.only(top: 8, bottom: 100), children: [
         if (shop.isOwner) ...[
           item(Icons.tune, 'Loyalty rules', '% per bill, value of 1 point, redeem limits, expiry', const LoyaltySettingsScreen()),
-          item(Icons.local_offer_outlined, 'Offers & gifts', 'Bonus points offers and gifts customers can take', const OffersScreen()),
+          item(Icons.inventory_2_outlined, 'Products', 'Gifts to redeem, and products that earn bonus points', const ShopProductsScreen()),
+          item(Icons.local_offer_outlined, 'Offers', 'Bonus points offers, e.g. 2x for painters this week', const OffersScreen()),
           item(Icons.sms_outlined, 'Message customers', 'SMS to a group of your customers', const MessageScreen()),
           item(Icons.badge_outlined, 'Staff & roles', 'Who can add points, redeem, give manual points', const StaffScreen()),
         ],

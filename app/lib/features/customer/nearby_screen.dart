@@ -13,7 +13,10 @@ import 'shop_profile_screen.dart';
 
 /// Every approved shop near the customer, sorted by distance. Category filter + name search.
 class NearbyScreen extends StatefulWidget {
-  const NearbyScreen({super.key});
+  const NearbyScreen({super.key, this.embedded = false});
+
+  /// Inside Explore's tabs: no own app bar.
+  final bool embedded;
   @override
   State<NearbyScreen> createState() => _NearbyScreenState();
 }
@@ -58,7 +61,7 @@ class _NearbyScreenState extends State<NearbyScreen> {
   Widget build(BuildContext context) {
     final api = context.read<ApiClient>();
     return Scaffold(
-      appBar: AppBar(title: const Text('Shops near you')),
+      appBar: widget.embedded ? null : AppBar(title: const Text('Shops near you')),
       body: Column(children: [
         Container(
           color: Colors.white,

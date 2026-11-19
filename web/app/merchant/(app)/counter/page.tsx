@@ -7,7 +7,8 @@ import { PayPanel } from '@/components/pay-panel';
 import { merchantApi, newKey } from '@/lib/api';
 import { rateFor, useMerchant } from '@/lib/merchant';
 import type { Slab } from '@/lib/merchant';
-import { inr, mobile, pts, PROFESSIONS } from '@/lib/format';
+import { inr, mobile, n, pts, PROFESSIONS } from '@/lib/format';
+import { Thumb } from '@/components/thumb';
 
 type Customer = {
   id: number; name: string; mobile: string; profession: string; upiId: string | null; level: string | null;
@@ -150,6 +151,12 @@ function Earn({ cust, offer, onDone }: { cust: Customer; offer: Offer | null; on
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<any>(null);
   const key = useRef(newKey());
+  // Earn-more products: fixed bonus per unit, on top of the bill (no offer multiplier, outside the cap).
+  const [bonusList, setBonusList] = useState<any[]>([]);
+  const [qty, setQty] = useState<Record<number, number>>({});
+  useEffect(() => { merchantApi.get<any[]>('shop/products/bonus').then(setBonusList).catch(() => undefined); }, []);
+  const bonus = bonusList.reduce((a, p) => a + (qty[p.id] ?? 0) * Number(p.bonus_points), 0);
+  const items = Object.entries(qty).filter(([, q]) => q > 0).map(([id, q]) => ({ productId: Number(id), qty: q }));
 
   const offerApplies = offer && (!offer.professions || offer.professions.includes(cust.profession));
   const amt = Number(amount.replace(/,/g, '')) || 0;
@@ -160,7 +167,7 @@ function Earn({ cust, offer, onDone }: { cust: Customer; offer: Offer | null; on
     setBusy(true);
     try {
       const r = mode === 'bill'
-        ? await merchantApi.post('shop/points/bill', { customerId: cust.id, amountRupees: amt, invoiceNo: invoice.trim() || undefined }, { 'Idempotency-Key': key.current })
+        ? await merchantApi.post('shop/points/bill', { customerId: cust.id, amountRupees: amt, invoiceNo: invoice.trim() || undefined, ...(items.length ? { items } : {}) }, { 'Idempotency-Key': key.current })
         : await merchantApi.post('shop/points/manual', { customerId: cust.id, points: Number(mPoints), reason, remarks: remarks.trim() || undefined }, { 'Idempotency-Key': key.current });
       setResult({ ...r, mode });
       key.current = newKey();
@@ -181,13 +188,14 @@ function Earn({ cust, offer, onDone }: { cust: Customer; offer: Offer | null; on
       <div className="py-4 text-center">
         <CheckCircle2 className="mx-auto text-ok" size={52} />
         <p className="tabular mt-3 text-3xl font-bold text-ok">+{pts(result.points)} points</p>
+        {n(result.bonusPoints) > 0 && <p className="text-sm text-ok">{pts(result.billPoints)} from bill + {pts(result.bonusPoints)} bonus ({result.bonusItems.map((b: any) => `${b.name} × ${b.qty}`).join(', ')})</p>}
         <p className="text-muted">
           {result.mode === 'bill' && result.rate?.offerName ? `${result.rate.offerName} applied · ` : ''}
           New balance {pts(result.balance)} · SMS sent to customer
         </p>
         {result.milestoneCrossed && <p className="mt-2 font-semibold text-[#9A6400]">🎉 Reached {result.milestoneCrossed.name} level</p>}
         <div className="mt-5 flex justify-center gap-2">
-          <Button onClick={() => { setResult(null); setAmount(''); setInvoice(''); setMPoints(''); setRemarks(''); }}>Add another bill</Button>
+          <Button onClick={() => { setResult(null); setAmount(''); setInvoice(''); setMPoints(''); setRemarks(''); setQty({}); }}>Add another bill</Button>
           <Button variant="secondary" onClick={reverse}><RotateCcw size={16} /> Reverse (mistake)</Button>
         </div>
       </div>
@@ -211,11 +219,38 @@ function Earn({ cust, offer, onDone }: { cust: Customer; offer: Offer | null; on
             </Field>
             <Field label="Invoice number (optional)" hint="The same invoice can't get points twice"><Input value={invoice} onChange={(e) => setInvoice(e.target.value)} /></Field>
           </div>
+          {bonusList.length > 0 && (
+            <div className="rounded-xl border border-line p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-sm font-semibold">Bonus products in this bill</span>
+                {bonus > 0 && <span className="text-sm font-bold text-ok">+{pts(bonus)} pts</span>}
+              </div>
+              <div className="grid gap-2 md:grid-cols-2">
+                {bonusList.map((p) => {
+                  const q = qty[p.id] ?? 0;
+                  const setQ = (v: number) => setQty({ ...qty, [p.id]: Math.max(0, Math.min(10000, v)) });
+                  return (
+                    <div key={p.id} className={`flex items-center gap-2 rounded-lg px-2 py-1.5 ${q > 0 ? 'bg-ok-50' : 'bg-page'}`}>
+                      <Thumb url={p.photo_url} kind="earn" size={34} />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium">{p.name}</div>
+                        <div className="text-xs text-muted">+{pts(p.bonus_points)} per {p.unit}{q > 0 ? ` · ${pts(q * p.bonus_points)} pts` : ''}</div>
+                      </div>
+                      <Button size="sm" variant="secondary" disabled={q === 0} onClick={() => setQ(q - 1)} aria-label="Less">−</Button>
+                      <input inputMode="numeric" value={q} onChange={(e) => setQ(Number(e.target.value.replace(/\D/g, '')) || 0)} className="h-8 w-12 rounded-md border border-line text-center text-sm font-semibold" aria-label={`${p.name} quantity`} />
+                      <Button size="sm" onClick={() => setQ(q + 1)} aria-label="More">+</Button>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-xs text-muted">Fixed points on top of the bill. Offers and the per-bill cap don’t change them.</p>
+            </div>
+          )}
           <div className="flex items-center justify-between rounded-xl bg-ok-50 px-4 py-3">
-            <span className="text-sm text-ok">{pv.pct}% of {inr(amt)}{offerApplies ? ` × ${Number(offer!.multiplier)}` : ''}{pv.capped ? ` (max ${pts(L.maxPointsPerBill)} per bill)` : ''}</span>
-            <span className="tabular text-2xl font-bold text-ok">+{pts(belowMin ? 0 : pv.points)} pts</span>
+            <span className="text-sm text-ok">{pv.pct}% of {inr(amt)}{offerApplies ? ` × ${Number(offer!.multiplier)}` : ''}{pv.capped ? ` (max ${pts(L.maxPointsPerBill)} per bill)` : ''}{bonus > 0 ? ` + ${pts(bonus)} bonus` : ''}</span>
+            <span className="tabular text-2xl font-bold text-ok">+{pts(belowMin ? 0 : pv.points + bonus)} pts</span>
           </div>
-          <Button size="lg" className="w-full" busy={busy} disabled={!amt || belowMin || pv.points <= 0} onClick={submit}>Add {pts(pv.points)} points</Button>
+          <Button size="lg" className="w-full" busy={busy} disabled={!amt || belowMin || pv.points + bonus <= 0} onClick={submit}>Add {pts(pv.points + bonus)} points</Button>
         </>
       ) : (
         <>

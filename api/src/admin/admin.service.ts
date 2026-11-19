@@ -223,7 +223,7 @@ export class AdminService {
               r.confirm_channel, r.created_at, r.paid_at, r.closed_at, s.name AS shop, s.id AS shop_id, s.phone AS shop_phone,
               u.name AS customer, u.mobile AS customer_mobile, g.name AS gift_name, pu.name AS paid_by
          FROM redemptions r JOIN shops s ON s.id = r.shop_id JOIN users u ON u.id = r.customer_id
-         LEFT JOIN gifts g ON g.id = r.gift_id LEFT JOIN users pu ON pu.id = r.paid_by
+         LEFT JOIN products g ON g.id = r.gift_id LEFT JOIN users pu ON pu.id = r.paid_by
         WHERE ${where} ORDER BY CASE r.status WHEN 'disputed' THEN 0 ELSE 1 END, COALESCE(r.paid_at, r.created_at) DESC LIMIT 300`, params,
     );
   }
@@ -315,6 +315,28 @@ export class AdminService {
         [b.code, b.name, b.sort ?? null, b.active ?? null],
       );
       await this.shops.audit(c, A(adminId), null, 'category.upsert', 'category', b.code, b);
+      return { code: b.code };
+    });
+  }
+
+  // ================================================================ work types (professions)
+  professions() {
+    return this.db.many(
+      `SELECT p.code, p.name, p.name_hi, p.sort, p.active, (SELECT count(*)::int FROM customers c WHERE c.profession = p.code) AS customers
+         FROM professions p ORDER BY p.sort, p.name`,
+    );
+  }
+
+  async upsertProfession(adminId: number, b: { code: string; name: string; nameHi?: string | null; sort?: number; active?: boolean }) {
+    if (b.code === 'other' && b.active === false) throw E.bad('KEEP_OTHER', '"Other" must stay on — customers fall back to it');
+    return this.db.tx(async (c) => {
+      await c.query(
+        `INSERT INTO professions (code, name, name_hi, sort, active) VALUES ($1,$2,$3,COALESCE($4,50),COALESCE($5,TRUE))
+         ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name, name_hi = COALESCE($3, professions.name_hi),
+           sort = COALESCE($4, professions.sort), active = COALESCE($5, professions.active)`,
+        [b.code, b.name, b.nameHi ?? null, b.sort ?? null, b.active ?? null],
+      );
+      await this.shops.audit(c, A(adminId), null, 'profession.upsert', 'profession', b.code, b);
       return { code: b.code };
     });
   }

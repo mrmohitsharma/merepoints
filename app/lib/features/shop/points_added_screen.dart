@@ -89,6 +89,11 @@ class _PointsAddedScreenState extends State<PointsAddedScreen> {
               child: Column(children: [
                 if (widget.bill != null) _kv('Bill amount', rupees(double.tryParse(widget.bill!['amount']!.replaceAll(',', '')) ?? 0)),
                 if (rate != null) _kv('Rate', '${asNum(rate['rewardPercent'])}%${asNum(rate['multiplier']) > 1 ? ' × ${asNum(rate['multiplier'])} ${rate['offerName']}' : ''}'),
+                if (asNum(r['bonusPoints']) > 0) ...[
+                  _kv('Points from bill', pts(asNum(r['billPoints']))),
+                  for (final b in (r['bonusItems'] as List? ?? const []).cast<Map<String, dynamic>>())
+                    _kv('${b['name']} × ${b['qty']}', '+${pts(asNum(b['bonus']))}'),
+                ],
                 if (widget.bill != null && widget.bill!['invoice']!.isNotEmpty) _kv('Invoice', widget.bill!['invoice']!),
                 _kv('Transaction ID', '${r['entryId']}'),
                 const Divider(height: 22),

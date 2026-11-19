@@ -18,7 +18,8 @@ export const E = {
 };
 
 /** Maps Postgres constraint errors that can legitimately reach the API to clean 409s. */
-const PG_CONSTRAINT_MAP: Record<string, [string, string]> = {
+const PG_CONSTRAINT_MAP: Record<string, [string, string, number?]> = {
+  customers_profession_fk: ['BAD_WORK_TYPE', 'Pick a work type from the list', 400],
   bills_unique_invoice: ['DUPLICATE_INVOICE', 'This invoice number already got points at your shop'],
   redemptions_one_open: ['REDEMPTION_OPEN', 'This customer already has a redemption in progress at your shop'],
   offers_no_overlap: ['OFFER_OVERLAP', 'Another offer already runs in these dates. Only one offer at a time.'],
@@ -40,7 +41,7 @@ export class AllErrorsFilter implements ExceptionFilter {
       return res.status(400).json({ code: 'VALIDATION', message: human?.message ?? 'Some fields are not valid', details: err.flatten() });
     }
     const mapped = err?.constraint && PG_CONSTRAINT_MAP[err.constraint];
-    if (mapped) return res.status(409).json({ code: mapped[0], message: mapped[1] });
+    if (mapped) return res.status(mapped[2] ?? 409).json({ code: mapped[0], message: mapped[1] });
     if (err?.code === '23514') return res.status(400).json({ code: 'CHECK_FAILED', message: err.constraint ?? 'Value not allowed' });
     console.error(err);
     return res.status(500).json({ code: 'INTERNAL', message: 'Something went wrong' });

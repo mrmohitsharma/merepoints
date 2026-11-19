@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'core/api.dart';
+import 'core/format.dart';
 import 'core/i18n.dart';
 import 'core/session.dart';
 import 'core/theme.dart';
@@ -18,6 +19,7 @@ void main() {
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   final api = ApiClient();
   final session = Session(api)..boot();
+  loadProfessions(() => api.get('shops/professions'));
   runApp(
     MultiProvider(
       providers: [

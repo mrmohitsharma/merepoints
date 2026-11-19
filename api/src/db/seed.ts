@@ -46,7 +46,7 @@ const NAMES = ['Ramesh Kumar', 'Suresh Yadav', 'Mohd. Salim', 'Pawan Verma', 'Ra
   'Rohit Tiwari', 'Gopal Das', 'Shyam Lal', 'Arjun Chauhan', 'Kamal Ansari', 'Bablu Mistry', 'Pradeep Saxena', 'Tarun Joshi',
   'Hari Om', 'Satish Rawat', 'Firoz Alam', 'Lalit Kumar', 'Mukesh Bhati', 'Jitender Singh', 'Sonu Kumar', 'Prem Chand',
   'Anand Mishra', 'Kishan Lal', 'Rajendra Meena', 'Om Prakash', 'Yusuf Qureshi', 'Ravi Shankar', 'Bhupender', 'Neeraj Thakur'];
-const PROF = ['carpenter', 'carpenter', 'carpenter', 'painter', 'contractor', 'electrician', 'plumber', 'interior_designer'];
+const PROF = ['carpenter', 'carpenter', 'carpenter', 'painter', 'contractor', 'electrician', 'plumber', 'interior_designer', 'mason', 'tile_fitter', 'pop_ceiling', 'kitchen_installer'];
 const rnd = (a: number, b: number) => Math.floor(a + Math.random() * (b - a + 1));
 
 async function main() {
@@ -87,8 +87,26 @@ async function main() {
   // ---- offer + gifts at the first shop
   const now = Date.now();
   await call('POST', '/shop/offers', { name: 'Diwali Dhamaka 1.5x', multiplier: 1.5, startsAt: new Date(now - 86_400_000).toISOString(), endsAt: new Date(now + 10 * 86_400_000).toISOString() }, live[0].token, live[0].id);
-  for (const g of [{ name: 'Tool bag', pointsCost: 500, stock: 20 }, { name: 'Electric kettle', pointsCost: 750, stock: 8 }, { name: 'Bosch drill machine', pointsCost: 3000, stock: 3 }]) {
-    await call('POST', '/shop/gifts', g, live[0].token, live[0].id);
+  // ---- products: gifts to redeem + "earn more" bonus items, at every live shop
+  const REDEEM = [
+    { name: 'Tool bag', brand: 'Stanley', category: 'Tools', mrpRupees: 899, pointsCost: 500, stock: 20 },
+    { name: 'Electric kettle', brand: 'Prestige', category: 'Home', mrpRupees: 1295, pointsCost: 750, stock: 8 },
+    { name: 'Measuring tape 5m', brand: 'Freemans', category: 'Tools', mrpRupees: 349, pointsCost: 250, stock: 40 },
+    { name: 'Safety shoes', brand: 'Allen Cooper', category: 'Safety', mrpRupees: 1899, pointsCost: 1200, stock: 6 },
+    { name: 'Cordless screwdriver', brand: 'Bosch', category: 'Tools', mrpRupees: 2999, pointsCost: 1800, stock: 4 },
+    { name: 'Bosch drill machine', brand: 'Bosch', category: 'Tools', mrpRupees: 3499, pointsCost: 3000, stock: 3 },
+    { name: 'Steel water bottle', brand: 'Milton', category: 'Home', mrpRupees: 499, pointsCost: 300, stock: 25 },
+    { name: 'Mixer grinder', brand: 'Bajaj', category: 'Home', mrpRupees: 3299, pointsCost: 2500, stock: 2 },
+  ];
+  const EARN = [
+    { name: 'Century ply 18mm', brand: 'Century', category: 'Plywood', bonusPoints: 40, unit: 'sheet' },
+    { name: 'Fevicol SH 5kg', brand: 'Pidilite', category: 'Adhesives', bonusPoints: 60, unit: 'tin' },
+    { name: 'Hettich soft-close hinge', brand: 'Hettich', category: 'Hardware', bonusPoints: 5, unit: 'pair' },
+    { name: 'Asian Paints Apex 20L', brand: 'Asian Paints', category: 'Paint', bonusPoints: 150, unit: 'bucket' },
+  ];
+  for (const [si, s] of live.entries()) {
+    for (const g of REDEEM.filter((_, k) => (k + si) % 3 !== 0)) await call('POST', '/shop/products', { kind: 'redeem', ...g }, s.token, s.id);
+    for (const g of EARN.filter((_, k) => (k + si) % 2 === 0 || si === 0)) await call('POST', '/shop/products', { kind: 'earn', ...g }, s.token, s.id);
   }
 
   // ---- bills
@@ -113,6 +131,18 @@ async function main() {
   for (let i = 0; i < 10; i++) await tryRedeem(i, i % 2 ? 'upi' : 'cash', 'received');
   await tryRedeem(10, 'upi', 'paid');
   await tryRedeem(11, 'upi', 'dispute');
+
+  // ---- home carousel: two admin ads + one shop request waiting for review
+  await call('POST', '/admin/ads', { title: 'Century Ply — extra points on every sheet', subtitle: 'At Vyapar Point shops near you', bgColor: '#7C2D12',
+    advertiserKind: 'brand', advertiserName: 'Century Ply', link: { kind: 'shop', shopId: live[0].id }, target: { mode: 'all' },
+    startsAt: new Date(now - 86_400_000).toISOString(), endsAt: new Date(now + 30 * 86_400_000).toISOString(), sort: 10, amountRupees: 25000 }, admin.token);
+  await call('POST', '/admin/ads', { title: 'Refer a shop, get 500 points', subtitle: 'Tell your shop about Vyapar Point', titleHi: 'दुकान जोड़ें, 500 पॉइंट पाएँ', bgColor: '#1D4ED8',
+    advertiserKind: 'own', advertiserName: 'Vyapar Point', link: { kind: 'none' }, target: { mode: 'all' },
+    startsAt: new Date(now - 86_400_000).toISOString(), endsAt: new Date(now + 60 * 86_400_000).toISOString(), sort: 20 }, admin.token);
+  const req = await call('POST', '/shop/ads', { title: 'Diwali sale — Bosch tools 10% off', bgColor: '#15803D', packCode: 'ad7',
+    startDate: new Date(now + 5.5 * 3_600_000).toISOString().slice(0, 10), link: { kind: 'shop' } }, live[1].token, live[1].id);
+  const adOrd = await call('POST', `/shop/ads/${req.id}/pay`, {}, live[1].token, live[1].id);
+  if (adOrd.testMode) await call('POST', '/shop/billing/verify', { orderId: adOrd.orderId, paymentId: 'pay_demo_ad', signature: 'test' }, live[1].token, live[1].id);
 
   // ---- one shop paid for Pro; one shop in grace
   const ord = await call('POST', '/shop/billing/orders', { kind: 'plan', planCode: 'pro' }, live[0].token, live[0].id);

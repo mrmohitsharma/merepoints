@@ -25,14 +25,21 @@ import { BillingWebhookController, ShopBillingController } from './billing/billi
 import { ExpiryService } from './jobs/expiry.service';
 import { SchedulerService } from './jobs/scheduler.service';
 import { HealthController } from './health.controller';
+import { ProductsService } from './products/products.service';
+import { UploadsService } from './uploads/uploads.service';
+import { UploadsController } from './uploads/uploads.controller';
+import { AdsService } from './ads/ads.service';
+import { AdminAdsController, CustomerAdsController, ShopAdsController } from './ads/ads.controller';
 
 @Module({
   imports: [JwtModule.register({ global: true, secret: config.jwtSecret, signOptions: { expiresIn: config.jwtTtl } })],
   controllers: [HealthController, AuthController, ShopRegisterController, ShopController, CustomerController, DiscoverController,
-    AdminAuthController, AdminController, ShopBillingController, BillingWebhookController],
+    AdminAuthController, AdminController, ShopBillingController, BillingWebhookController, UploadsController,
+    CustomerAdsController, ShopAdsController, AdminAdsController],
   providers: [
     Db, SmsService, AuthService, ShopService, PointsService, RedeemService, OffersService, ReportsService,
     CustomerService, MilestoneService, AdminService, AdminAuthService, BillingService, ExpiryService, SchedulerService,
+    ProductsService, UploadsService, AdsService,
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: AllErrorsFilter },
   ],

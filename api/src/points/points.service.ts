@@ -1,3 +1,4 @@
+import { ProductsService } from '../products/products.service';
 import { Injectable } from '@nestjs/common';
 import { basePoints, rateBpsFor } from './rate';
 import { PoolClient } from 'pg';
@@ -12,12 +13,12 @@ import { ShopService } from '../shop/shop.service';
 import { bumpStats, IST_DAY_START, lockWallet, writeLedger } from './ledger';
 import { MilestoneService } from '../customer/milestone.service';
 
-export interface EarnBillInput { customerId: number; amountRupees: number; invoiceNo?: string; photoUrl?: string }
+export interface EarnBillInput { customerId: number; amountRupees: number; invoiceNo?: string; photoUrl?: string; items?: { productId: number; qty: number }[] }
 export interface EarnManualInput { customerId: number; points: number; reason: string; remarks?: string; invoiceNo?: string }
 
 @Injectable()
 export class PointsService {
-  constructor(private db: Db, private sms: SmsService, private shops: ShopService, private milestones: MilestoneService) {}
+  constructor(private db: Db, private sms: SmsService, private shops: ShopService, private milestones: MilestoneService, private products: ProductsService) {}
 
   // ------------------------------------------------------------------ find customer
   async resolveCustomer(shopId: number, by: { qr?: string; mobile?: string }) {
@@ -57,7 +58,7 @@ export class PointsService {
         [mobile, p.name],
       )).rows[0];
       const created = await c.query(
-        `INSERT INTO customers (user_id, profession, upi_id, city) VALUES ($1, COALESCE($2,'other')::profession, $3, $4)
+        `INSERT INTO customers (user_id, profession, upi_id, city) VALUES ($1, COALESCE($2,'other'), $3, $4)
          ON CONFLICT (user_id) DO NOTHING RETURNING 1`,
         [u.id, p.profession ?? null, p.upiId ?? null, p.city ?? null],
       );
@@ -94,28 +95,35 @@ export class PointsService {
       let points = offer ? Math.floor((base * offer.multiplier_x100) / 100) : base;
       const capped = cfg.max_points_per_bill != null && points > cfg.max_points_per_bill;
       if (capped) points = cfg.max_points_per_bill;
-      if (points <= 0) throw E.bad('ZERO_POINTS', 'This bill is too small to earn any points');
+      // Bonus for ticked "earn more" products: fixed, on top, outside the multiplier and the cap.
+      const bonus = await this.products.bonusFor(c, shop.id, input.items ?? []);
+      if (points + bonus.bonus <= 0) throw E.bad('ZERO_POINTS', 'This bill is too small to earn any points');
 
       const { w, created } = await lockWallet(c, input.customerId, shop.id, true);
       if (w.blocked) throw E.forbidden('CUSTOMER_BLOCKED', 'This customer is blocked at your shop');
 
       const bill = (await c.query(
-        `INSERT INTO bills (shop_id, customer_id, invoice_no, amount_paise, photo_url, config_id, offer_id, base_points, points, created_by, reward_bps)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
-        [shop.id, input.customerId, invoiceNo, amountPaise, input.photoUrl ?? null, cfg.id, offer?.id ?? null, base, points, staffId, bps],
+        `INSERT INTO bills (shop_id, customer_id, invoice_no, amount_paise, photo_url, config_id, offer_id, base_points, points, created_by, reward_bps, bonus_points)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
+        [shop.id, input.customerId, invoiceNo, amountPaise, input.photoUrl ?? null, cfg.id, offer?.id ?? null, base, points, staffId, bps, bonus.bonus],
       )).rows[0];
+      for (const l of bonus.lines) {
+        await c.query('INSERT INTO bill_items (bill_id, product_id, qty, bonus_each) VALUES ($1,$2,$3,$4)', [bill.id, l.productId, l.qty, l.each]);
+      }
+      const total = points + bonus.bonus;
 
       const out = await this.credit(c, {
-        shopId: shop.id, customerId: input.customerId, wallet: w, points, pointValuePaise: cfg.point_value_paise, expiryDays: cfg.expiry_days,
+        shopId: shop.id, customerId: input.customerId, wallet: w, points: total, pointValuePaise: cfg.point_value_paise, expiryDays: cfg.expiry_days,
         type: 'earn_bill', prefix: 'ER', billId: bill.id, createdBy: staffId, purchasePaise: amountPaise, isNewCustomer: created,
       });
       if (offer && points > base) await c.query('UPDATE offers SET extra_points = extra_points + $2 WHERE id = $1', [offer.id, points - base]);
-      await this.notifyEarn(c, shop.id, cust, points, out.balanceAfter, created);
+      await this.notifyEarn(c, shop.id, cust, total, out.balanceAfter, created);
 
       return {
-        entryId: out.entry.public_id, points, basePoints: base, capped,
+        entryId: out.entry.public_id, points: total, billPoints: points, basePoints: base, capped,
+        bonusPoints: bonus.bonus, bonusItems: bonus.lines.map((l) => ({ productId: l.productId, name: l.name, qty: l.qty, bonusEach: l.each, bonus: l.qty * l.each })),
         rate: { rewardPercent: bps / 100, slabbed: !!cfg.reward_slabs, multiplier: offer ? offer.multiplier_x100 / 100 : 1, offerName: offer?.name ?? null },
-        valueRupees: (points * cfg.point_value_paise) / 100, balance: out.balanceAfter, newCustomerAtShop: created,
+        valueRupees: (total * cfg.point_value_paise) / 100, balance: out.balanceAfter, newCustomerAtShop: created,
         milestoneCrossed: out.milestoneCrossed, createdAt: out.entry.created_at,
       };
     }));

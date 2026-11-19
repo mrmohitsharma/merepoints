@@ -4,13 +4,13 @@ import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BarChart3, CreditCard, Gift, HandCoins, LayoutDashboard, ListOrdered, MessageSquare, ScanLine, Settings, Users, UserCog, Loader2, Clock } from 'lucide-react';
+import { BarChart3, CreditCard, Gift, HandCoins, LayoutDashboard, ListOrdered, MessageSquare, ScanLine, Settings, Users, UserCog, Loader2, Clock, Package, Megaphone } from 'lucide-react';
 import { Shell } from '@/components/shell';
 import { Button, Card } from '@/components/ui';
-import { merchantApi, session } from '@/lib/api';
+import { API_URL, merchantApi, session } from '@/lib/api';
 import { MerchantContext, Shop } from '@/lib/merchant';
 import type { MerchantCtx } from '@/lib/merchant';
-import { date, mobile } from '@/lib/format';
+import { date, loadProfessions, mobile } from '@/lib/format';
 
 export default function MerchantLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -22,7 +22,7 @@ export default function MerchantLayout({ children }: { children: ReactNode }) {
   const load = useCallback(async () => {
     if (!session.token('merchant') || !session.shopId()) { router.replace('/merchant/login/'); return; }
     try {
-      const [me, shop] = await Promise.all([merchantApi.get('auth/me'), merchantApi.get<Shop>('shop')]);
+      const [me, shop] = await Promise.all([merchantApi.get('auth/me'), merchantApi.get<Shop>('shop'), loadProfessions(API_URL)]);
       setCtx({
         shop, user: me.user, shops: me.roles.shops,
         isOwner: shop.me.role === 'owner', readOnly: shop.billing === 'read_only',
@@ -73,7 +73,9 @@ export default function MerchantLayout({ children }: { children: ReactNode }) {
     { href: '/merchant/redemptions/', label: 'Payouts', icon: HandCoins, badge: openRedeem },
     { href: '/merchant/customers/', label: 'Customers', icon: Users },
     { href: '/merchant/transactions/', label: 'Transactions', icon: ListOrdered },
-    { href: '/merchant/offers/', label: 'Offers & gifts', icon: Gift, owner: true },
+    { href: '/merchant/products/', label: 'Products', icon: Package, owner: true },
+    { href: '/merchant/offers/', label: 'Offers', icon: Gift, owner: true },
+    { href: '/merchant/ads/', label: 'Home-screen ad', icon: Megaphone, owner: true },
     { href: '/merchant/messages/', label: 'SMS customers', icon: MessageSquare, owner: true },
     { href: '/merchant/reports/', label: 'Reports', icon: BarChart3, owner: true },
     { href: '/merchant/staff/', label: 'Staff', icon: UserCog, owner: true },

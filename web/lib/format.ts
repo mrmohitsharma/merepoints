@@ -47,9 +47,32 @@ export function mobile(v?: string | null) {
 export const istToday = () => new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
 export const istDaysAgo = (days: number) => new Date(Date.now() + 5.5 * 3600_000 - days * 86400_000).toISOString().slice(0, 10);
 
+/** Work types. Built-in list first; loadProfessions() replaces it with the Super Admin-editable list. */
 export const PROFESSIONS: Record<string, string> = {
-  carpenter: 'Carpenter', painter: 'Painter', interior_designer: 'Interior designer', contractor: 'Contractor',
-  architect: 'Architect', plumber: 'Plumber', electrician: 'Electrician', other: 'Other',
+  carpenter: 'Carpenter', painter: 'Painter', contractor: 'Contractor', interior_designer: 'Interior designer',
+  architect: 'Architect', plumber: 'Plumber', electrician: 'Electrician', mason: 'Mason (raj mistri)', tile_fitter: 'Tile fitter',
+  pop_ceiling: 'POP / false ceiling', fabricator: 'Welder / fabricator', kitchen_installer: 'Kitchen / wardrobe installer',
+  builder: 'Builder / site supervisor', other: 'Other',
+};
+let professionsLoaded: Promise<void> | null = null;
+export function loadProfessions(apiUrl: string): Promise<void> {
+  professionsLoaded ??= fetch(`${apiUrl}/shops/professions`).then((r) => (r.ok ? r.json() : [])).then((list: { code: string; name: string }[]) => {
+    if (!Array.isArray(list) || !list.length) return;
+    for (const k of Object.keys(PROFESSIONS)) delete PROFESSIONS[k];
+    for (const p of list) PROFESSIONS[p.code] = p.name;
+  }).catch(() => undefined);
+  return professionsLoaded;
+}
+
+export const AD_PHASE: Record<string, { label: string; tone: 'ok' | 'bad' | 'muted' | 'brand' | 'amber' }> = {
+  live: { label: 'Live', tone: 'ok' },
+  scheduled: { label: 'Scheduled', tone: 'brand' },
+  paused: { label: 'Paused', tone: 'muted' },
+  ended: { label: 'Ended', tone: 'muted' },
+  pending_review: { label: 'Waiting for review', tone: 'amber' },
+  pending_payment: { label: 'Not paid', tone: 'amber' },
+  rejected: { label: 'Rejected', tone: 'bad' },
+  cancelled: { label: 'Cancelled', tone: 'muted' },
 };
 
 export const LEDGER: Record<string, { label: string; tone: 'ok' | 'bad' | 'muted' | 'brand' | 'amber' }> = {
@@ -88,6 +111,9 @@ const ACTIONS: Record<string, string> = {
   'category.upsert': 'Category saved', 'plan.upsert': 'Plan saved', 'sms_pack.upsert': 'SMS pack saved', 'settings.update': 'Settings changed',
   'customer.quick_add': 'Customer added at counter', 'gift.update': 'Gift changed', 'gift.create': 'Gift added', 'admin.login': 'Admin logged in', 'admin.login_failed': 'Wrong admin password', 'admin.create': 'Admin added', 'admin.update': 'Admin changed',
   'admin.password_changed': 'Admin changed password', 'admin.password_reset': 'Admin password reset',
+  'product.create': 'Product added', 'product.update': 'Product changed', 'profession.upsert': 'Work type saved',
+  'ad.create': 'Ad created', 'ad.update': 'Ad changed', 'ad.request': 'Ad requested by shop', 'ad.cancel': 'Ad request cancelled',
+  'ad.approve': 'Ad approved', 'ad.reject': 'Ad rejected', 'ad.pause': 'Ad paused', 'ad.resume': 'Ad resumed', 'ad_pack.upsert': 'Ad pack saved',
 };
 export const actionLabel = (a: string) => ACTIONS[a] ?? a.replace(/[._]/g, ' ');
 

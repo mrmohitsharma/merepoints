@@ -66,11 +66,28 @@ The API creates all tables itself on first start (migrations), so you don't run 
    ```
    Shop owners log in at `app.vyaparpoint.in/merchant/`, your team at `app.vyaparpoint.in/admin/`.
 
+## 4b. Photo uploads (product photos, ad banners)
+
+Phones and the web upload straight to S3 with a 10-minute signed link from the API; files are served by CloudFront.
+
+1. S3 › Create bucket `vyapar-uploads-<something>` in ap-south-1, Block all public access **on**.
+2. Bucket › Permissions › CORS:
+   ```json
+   [{ "AllowedMethods": ["PUT"], "AllowedOrigins": ["https://app.vyaparpoint.in"], "AllowedHeaders": ["Content-Type", "Cache-Control"], "MaxAgeSeconds": 3000 }]
+   ```
+   (The Flutter app does not need CORS.)
+3. CloudFront › new distribution with that bucket as origin (Origin access control), alternate domain `files.vyaparpoint.in`, cache policy *CachingOptimized*.
+4. App Runner's instance role: allow `s3:PutObject` on `arn:aws:s3:::vyapar-uploads-<something>/*`.
+5. Environment: `S3_BUCKET`, `AWS_REGION=ap-south-1`, `S3_PUBLIC_BASE_URL=https://files.vyaparpoint.in`. The API refuses to start in production without `S3_BUCKET`.
+
+Limits: JPG/PNG/WebP, 2 MB. Keys look like `product/2026-11-19/u42-<random>.jpg`. Without `S3_BUCKET` (development) files are kept in `api/uploads/`.
+
 ## 5. Razorpay
 
 1. Razorpay Dashboard › Settings › API keys › generate **live** keys → `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` on App Runner.
 2. Webhooks › add `https://api.vyaparpoint.in/v1/billing/razorpay/webhook`, events `payment.captured` and `order.paid`, set a secret → `RAZORPAY_WEBHOOK_SECRET`. The webhook catches payments where the owner closed the browser before returning.
-3. Prices are set in Super Admin › Plans & SMS packs.
+3. Prices are set in Super Admin › Plans & SMS packs. Shop ad prices: Super Admin › Home ads › Shop ad prices.
+4. Shop ad payments use the same keys and webhook. If an ad is rejected after payment, refund it from the Razorpay dashboard (the shop is told by SMS).
 
 Without keys the API runs billing in **test mode** in development, and in production refuses to take payments with a clear message.
 
@@ -101,5 +118,6 @@ flutter build ipa --release --dart-define=API_URL=https://api.vyaparpoint.in/v1 
 - [ ] `ADMIN_BOOTSTRAP_*` removed after first login; owner password changed
 - [ ] `CORS_ORIGINS` set to the web domain only
 - [ ] Razorpay live keys and webhook secret set; test one ₹1 plan
-- [ ] SMS DLT templates approved and provider connected
+- [ ] SMS DLT templates approved and provider connected (includes `ad_approved` / `ad_rejected`)
+- [ ] Uploads bucket private, CloudFront `files.` domain working, `S3_BUCKET` set
 - [ ] CloudWatch alarm on App Runner 5xx errors and RDS CPU/free storage

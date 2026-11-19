@@ -123,7 +123,7 @@ describe('gifts', () => {
     const r2 = await http().post('/v1/shop/redemptions').set(auth(owner.token, shopId)).send({ customerId: c2.userId, method: 'gift', giftId: g.body.id }).expect(201);
     await http().post(`/v1/shop/redemptions/${r2.body.redemptionId}/paid`).set(auth(owner.token, shopId)).send({}).expect(201);
     await http().post(`/v1/me/redemptions/${r2.body.redemptionId}/received`).set(auth(c2.token)).expect(201);
-    const gift = (await pg.query('SELECT stock, given_count FROM gifts WHERE id = $1', [g.body.id])).rows[0];
+    const gift = (await pg.query('SELECT stock, given_count FROM products WHERE id = $1', [g.body.id])).rows[0];
     expect(gift).toEqual({ stock: 0, given_count: 1 });
   });
 });

@@ -5,20 +5,8 @@ import { Check, MessageSquare } from 'lucide-react';
 import { Async, Badge, Button, Card, MapBadge, Note, PageHeader, Table, useAsync, useToast } from '@/components/ui';
 import { merchantApi } from '@/lib/api';
 import { useMerchant } from '@/lib/merchant';
+import { payOrder } from '@/lib/checkout';
 import { BILLING, date, inr, pts } from '@/lib/format';
-
-declare global { interface Window { Razorpay?: any } }
-
-function loadCheckout(): Promise<void> {
-  if (window.Razorpay) return Promise.resolve();
-  return new Promise((res, rej) => {
-    const s = document.createElement('script');
-    s.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    s.onload = () => res();
-    s.onerror = () => rej(new Error('Could not load the payment window. Check your internet.'));
-    document.body.appendChild(s);
-  });
-}
 
 export default function Billing() {
   const { shop, user, refresh } = useMerchant();
@@ -36,27 +24,7 @@ export default function Billing() {
         toast.ok(r.kind === 'plan' ? `Paid. Plan active till ${date(r.periodEnd)}.` : `${pts(r.smsAdded)} SMS added.`);
         await Promise.all([b.reload(true), refresh()]);
       };
-      if (order.testMode) {
-        if (confirm(`TEST MODE (no real money)\n\nPay ${inr(order.amountPaise / 100)} for ${order.description}?`)) await finish(`pay_test_${Date.now()}`, 'test');
-        return;
-      }
-      await loadCheckout();
-      await new Promise<void>((resolve) => {
-        const rz = new window.Razorpay({
-          key: order.keyId, order_id: order.orderId, amount: order.amountPaise, currency: 'INR',
-          name: 'Vyapar Point', description: `${order.description} · ${shop.name}`,
-          prefill: { contact: '+' + user.mobile, name: user.name ?? undefined },
-          notes: { shop: String(shop.id) },
-          theme: { color: '#0F4C81' },
-          handler: async (resp: any) => {
-            try { await finish(resp.razorpay_payment_id, resp.razorpay_signature); } catch (e) { toast.error(e); }
-            resolve();
-          },
-          modal: { ondismiss: () => resolve() },
-        });
-        rz.on('payment.failed', (resp: any) => toast.error(resp?.error?.description ?? 'Payment failed'));
-        rz.open();
-      });
+      await payOrder(order, { shopName: shop.name, shopId: shop.id, mobile: user.mobile, name: user.name }, finish, (m) => toast.error(m));
     } catch (e) { toast.error(e); } finally { setBusy(''); }
   }
 

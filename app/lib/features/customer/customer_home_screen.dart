@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api.dart';
@@ -10,14 +11,18 @@ import '../../core/i18n.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/products.dart';
+import 'ad_carousel.dart';
 import 'level_up_screen.dart';
+import 'product_detail_screen.dart';
 import 'my_qr_screen.dart';
 import 'received_sheet.dart';
 import 'shop_card_screen.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
-  const CustomerHomeScreen({super.key, required this.onFindShops});
+  const CustomerHomeScreen({super.key, required this.onFindShops, required this.onSeeAllProducts});
   final VoidCallback onFindShops;
+  final VoidCallback onSeeAllProducts;
   @override
   State<CustomerHomeScreen> createState() => _CustomerHomeScreenState();
 }
@@ -25,6 +30,13 @@ class CustomerHomeScreen extends StatefulWidget {
 class _CustomerHomeScreenState extends State<CustomerHomeScreen> with WidgetsBindingObserver {
   Map<String, dynamic>? _home;
   Object? _error;
+  // Products section: 2 rows (6) at a time, "Load more" adds 6.
+  String _kind = 'redeem';
+  final _products = <Map<String, dynamic>>[];
+  int? _nextProducts = 0;
+  int? _productsTotal;
+  bool _productsLoading = false;
+  int _productsGen = 0;
   Timer? _poll;
   final _shownSheets = <String>{};
   static const _store = FlutterSecureStorage();
@@ -50,9 +62,46 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> with WidgetsBin
     super.dispose();
   }
 
-  Future<void> _load({bool quiet = false}) async {
+  /// Only uses location if the customer already allowed it (never asks from Home).
+  Future<Map<String, dynamic>> _where() async {
     try {
-      final h = await context.read<ApiClient>().get('me/home') as Map<String, dynamic>;
+      final p = await Geolocator.checkPermission();
+      if (p != LocationPermission.always && p != LocationPermission.whileInUse) return {};
+      final pos = await Geolocator.getLastKnownPosition();
+      return pos == null ? {} : {'lat': pos.latitude, 'lng': pos.longitude};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<void> _loadProducts({bool reset = false}) async {
+    if (reset) {
+      _productsGen++;
+      _products.clear();
+      _nextProducts = 0;
+      _productsLoading = false;
+    }
+    if (_productsLoading || _nextProducts == null) return;
+    final gen = _productsGen;
+    setState(() => _productsLoading = true);
+    try {
+      final r = await context.read<ApiClient>().get('me/products', query: {'kind': _kind, 'limit': 6, 'offset': _nextProducts}) as Map<String, dynamic>;
+      if (!mounted || gen != _productsGen) return;
+      setState(() {
+        _products.addAll((r['items'] as List).cast<Map<String, dynamic>>());
+        _nextProducts = r['next'] as int?;
+        if (r['summary'] != null) _productsTotal = asNum((r['summary'] as Map)['total']).toInt();
+        _productsLoading = false;
+      });
+    } catch (_) {
+      if (mounted && gen == _productsGen) setState(() => _productsLoading = false);
+    }
+  }
+
+  Future<void> _load({bool quiet = false}) async {
+    if (!quiet) _loadProducts(reset: true);
+    try {
+      final h = await context.read<ApiClient>().get('me/home', query: await _where()) as Map<String, dynamic>;
       if (!mounted) return;
       setState(() {
         _home = h;
@@ -208,6 +257,39 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> with WidgetsBin
                     ]),
                   ),
                 ),
+              // Banner carousel sits between the shop cards and the products.
+              if ((h['ads'] as List?)?.isNotEmpty == true)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: AdCarousel(ads: (h['ads'] as List).cast<Map<String, dynamic>>()),
+                ),
+              if (cards.isNotEmpty) ...[
+                SectionTitle(context.t('products_at_my_shops'), trailing: TextButton(onPressed: widget.onSeeAllProducts, child: const Text('See all'))),
+                KindTabs(kind: _kind, onChanged: (k) {
+                  if (k == _kind) return;
+                  setState(() => _kind = k);
+                  _loadProducts(reset: true);
+                }),
+                const SizedBox(height: 10),
+                if (_products.isEmpty && !_productsLoading)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    child: InfoNote(_kind == 'redeem' ? 'Your shops have not listed gifts yet.' : 'No bonus products at your shops yet.'),
+                  )
+                else
+                  ProductGrid(items: _products, onTap: (p) => ProductDetailScreen.open(context, p).then((_) => _load(quiet: true))),
+                if (_productsLoading) const Padding(padding: EdgeInsets.all(14), child: Center(child: CircularProgressIndicator())),
+                if (_nextProducts != null && !_productsLoading && _products.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: OutlinedButton(onPressed: () => _loadProducts(), child: Text(context.t('load_more'))),
+                  ),
+                if (_productsTotal != null && _products.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Center(child: Text('Showing ${_products.length} of $_productsTotal', style: const TextStyle(color: VP.muted, fontSize: 13))),
+                  ),
+              ],
             ]),
           ),
         ]),

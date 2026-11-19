@@ -6,10 +6,12 @@ import '../../core/format.dart';
 import '../../core/points_math.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/products.dart';
 import 'history_screen.dart';
+import 'product_detail_screen.dart';
 import 'shop_profile_screen.dart';
 
-/// One shop's points card: balance & value at this shop, gifts with progress, history here.
+/// One shop's points card: balance & value at this shop, products (Redeem | Earn more), history here.
 class ShopCardScreen extends StatelessWidget {
   const ShopCardScreen({super.key, required this.shopId});
   final int shopId;
@@ -25,7 +27,7 @@ class ShopCardScreen extends StatelessWidget {
         load: () async => await api.get('me/cards/$shopId') as Map<String, dynamic>,
         builder: (context, d, reload) {
           final shop = d['shop'] as Map<String, dynamic>;
-          final gifts = (d['gifts'] as List).cast<Map<String, dynamic>>();
+          final products = d['products'] as Map<String, dynamic>?;
           final history = (d['history'] as List).cast<Map<String, dynamic>>();
           return ListView(padding: const EdgeInsets.only(top: 12, bottom: 24), children: [
             Container(
@@ -72,45 +74,7 @@ class ShopCardScreen extends StatelessWidget {
                 ),
               ]),
             ),
-            if (gifts.isNotEmpty) ...[
-              const SectionTitle('Gifts at this shop'),
-              SizedBox(
-                height: 186,
-                child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  scrollDirection: Axis.horizontal,
-                  itemCount: gifts.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 10),
-                  itemBuilder: (_, i) {
-                    final g = gifts[i];
-                    final cost = asNum(g['points_cost']);
-                    final progress = (asNum(d['points']) / cost).clamp(0.0, 1.0).toDouble();
-                    return Container(
-                      width: 130,
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: g['photo_url'] != null
-                                ? Image.network('${g['photo_url']}', fit: BoxFit.cover, width: double.infinity, errorBuilder: (_, __, ___) => Container(color: VP.ground))
-                                : Container(color: VP.ground, child: const Center(child: Icon(Icons.card_giftcard, color: VP.muted))),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text('${g['name']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                        Text('${pts(cost)} pts', style: const TextStyle(fontWeight: FontWeight.w800, color: VP.blue, fontSize: 13)),
-                        const SizedBox(height: 3),
-                        ClipRRect(borderRadius: BorderRadius.circular(3), child: LinearProgressIndicator(value: progress, minHeight: 5, color: g['canTake'] == true ? VP.green : VP.muted, backgroundColor: const Color(0xFFE6EAF0))),
-                        Text(g['in_stock'] != true ? 'Out of stock' : g['canTake'] == true ? 'You can take it' : '${pts(asNum(g['needMore']))} more',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: g['canTake'] == true ? VP.green : VP.muted)),
-                      ]),
-                    );
-                  },
-                ),
-              ),
-            ],
+            if (products != null) _ShopProducts(redeem: (products['redeem'] as List).cast<Map<String, dynamic>>(), earn: (products['earn'] as List).cast<Map<String, dynamic>>(), reload: reload),
             SectionTitle('History here', trailing: TextButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => HistoryScreen(shopId: shopId, title: '${shop['name']}'))), child: const Text('See all'))),
             for (final e in history.take(10)) HistoryRow(e: e, showShop: false),
           ]);
@@ -133,4 +97,39 @@ class _MiniStat extends StatelessWidget {
           Text(value, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800)),
         ]),
       );
+}
+
+/// Redeem | Earn more at this shop: 6 first, "See all N" shows the rest here.
+class _ShopProducts extends StatefulWidget {
+  const _ShopProducts({required this.redeem, required this.earn, required this.reload});
+  final List<Map<String, dynamic>> redeem;
+  final List<Map<String, dynamic>> earn;
+  final Future<void> Function() reload;
+  @override
+  State<_ShopProducts> createState() => _ShopProductsState();
+}
+
+class _ShopProductsState extends State<_ShopProducts> {
+  late String _kind = widget.redeem.isEmpty && widget.earn.isNotEmpty ? 'earn' : 'redeem';
+  bool _all = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.redeem.isEmpty && widget.earn.isEmpty) return const SizedBox.shrink();
+    final list = _kind == 'redeem' ? widget.redeem : widget.earn;
+    final shown = _all ? list : list.take(6).toList();
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      SectionTitle('Products at this shop',
+          trailing: list.length > 6 && !_all ? TextButton(onPressed: () => setState(() => _all = true), child: Text('See all ${list.length}')) : null),
+      KindTabs(kind: _kind, redeemCount: widget.redeem.length, earnCount: widget.earn.length, onChanged: (k) => setState(() {
+            _kind = k;
+            _all = false;
+          })),
+      const SizedBox(height: 10),
+      if (shown.isEmpty)
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: InfoNote(_kind == 'redeem' ? 'No gifts listed here yet.' : 'No bonus products here yet.'))
+      else
+        ProductGrid(items: shown, showShop: false, onTap: (p) => ProductDetailScreen.open(context, p).then((_) => widget.reload())),
+    ]);
+  }
 }

@@ -2,8 +2,8 @@
 
 One Next.js app, two portals, exported as static files (no server to run):
 
-- **`/merchant/`**: shop owners and staff log in with mobile OTP. Counter (add points / pay out by mobile number or USB QR scanner), payouts, customers, transactions, offers & gifts, SMS, reports, staff, settings, plan & billing (Razorpay).
-- **`/admin/`**: the Vyapar Point team logs in with username + password (locks for 15 min after 5 wrong tries). Roles: **Owner** (everything), **Operations** (shops, approvals, SMS credits, plan extensions, analytics, payments), **Support** (disputes, customer lookup, read-only shops).
+- **`/merchant/`**: shop owners and staff log in with mobile OTP. Counter (add points / pay out by mobile number or USB QR scanner), payouts, customers, transactions, products (gifts + earn-more bonus, photo upload), offers, Home-screen ad (book + pay + status), SMS, reports, staff, settings, plan & billing (Razorpay).
+- **`/admin/`**: the Vyapar Point team logs in with username + password (locks for 15 min after 5 wrong tries). Also: Home ads (create, review shop requests, pause, shop ad prices) and Work types. Roles: **Owner** (everything), **Operations** (shops, approvals, SMS credits, plan extensions, analytics, payments), **Support** (disputes, customer lookup, read-only shops).
 
 ## Run locally
 

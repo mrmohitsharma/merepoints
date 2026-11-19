@@ -54,7 +54,8 @@ void _android() {
 void _ios() {
   _patch('ios/Runner/Info.plist', (s) {
     final entries = <String, String>{
-      'NSCameraUsageDescription': '<string>Scan your customers\' Vyapar Point QR code at the counter.</string>',
+      'NSCameraUsageDescription': '<string>Scan your customers\' Vyapar Point QR code at the counter, and take product photos.</string>',
+      'NSPhotoLibraryUsageDescription': '<string>Pick product photos and ad banners for your shop.</string>',
       'NSLocationWhenInUseUsageDescription': '<string>Set your shop location and show Vyapar Point shops near you.</string>',
       'LSApplicationQueriesSchemes': '<array><string>upi</string><string>phonepe</string><string>tez</string><string>gpay</string><string>paytmmp</string><string>tel</string></array>',
       'NSAppTransportSecurity': '<dict><key>NSAllowsLocalNetworking</key><true/></dict>',

@@ -40,7 +40,9 @@ String prettyMobile(String? m) {
   return ten.length == 10 ? '${ten.substring(0, 5)} ${ten.substring(5)}' : ten;
 }
 
-const professions = <String, String>{
+/// Work types. Starts with the built-in list so screens work offline; [loadProfessions] replaces it
+/// with the Super Admin-editable list from the API (codes stay stable, names may change).
+final Map<String, String> professions = {
   'carpenter': 'Carpenter',
   'painter': 'Painter',
   'contractor': 'Contractor',
@@ -48,5 +50,29 @@ const professions = <String, String>{
   'architect': 'Architect',
   'plumber': 'Plumber',
   'electrician': 'Electrician',
+  'mason': 'Mason (raj mistri)',
+  'tile_fitter': 'Tile fitter',
+  'pop_ceiling': 'POP / false ceiling',
+  'fabricator': 'Welder / fabricator',
+  'kitchen_installer': 'Kitchen / wardrobe installer',
+  'builder': 'Builder / site supervisor',
   'other': 'Other',
 };
+
+/// Hindi names from the API, used when the app language is Hindi.
+final Map<String, String> professionsHi = {};
+
+Future<void> loadProfessions(Future<dynamic> Function() fetch) async {
+  try {
+    final list = (await fetch()) as List;
+    if (list.isEmpty) return;
+    professions
+      ..clear()
+      ..addEntries(list.map((p) => MapEntry('${p['code']}', '${p['name']}')));
+    professionsHi
+      ..clear()
+      ..addEntries(list.where((p) => p['nameHi'] != null).map((p) => MapEntry('${p['code']}', '${p['nameHi']}')));
+  } catch (_) {
+    // keep the built-in list
+  }
+}

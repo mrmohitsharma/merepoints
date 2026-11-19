@@ -17,10 +17,14 @@ export class OffersService {
     if (new Date(o.endsAt) <= new Date(o.startsAt)) throw E.bad('BAD_DATES', 'End date must be after start date');
     if (new Date(o.endsAt) <= new Date()) throw E.bad('BAD_DATES', 'This offer would already be over');
     return this.db.tx(async (c) => {
+      if (o.professions?.length) {
+        const known = (await c.query('SELECT count(*)::int AS n FROM professions WHERE code = ANY($1)', [o.professions])).rows[0].n;
+        if (known !== new Set(o.professions).size) throw E.bad('BAD_WORK_TYPE', 'Pick work types from the list');
+      }
       // offers_no_overlap (EXCLUDE USING gist) rejects overlap atomically, even with two owners clicking at once.
       const r = (await c.query(
         `INSERT INTO offers (shop_id, name, multiplier_x100, period, professions, created_by)
-         VALUES ($1,$2,$3, tstzrange($4,$5,'[)'), $6::profession[], $7) RETURNING id`,
+         VALUES ($1,$2,$3, tstzrange($4,$5,'[)'), $6::text[], $7) RETURNING id`,
         [shopId, o.name, mult, o.startsAt, o.endsAt, o.professions?.length ? o.professions : null, userId],
       )).rows[0];
       await this.shops.audit(c, userId, shopId, 'offer.create', 'offer', r.id, o);
@@ -56,13 +60,13 @@ export class OffersService {
     return this.db.tx(async (c) => {
       const r = g.id
         ? (await c.query(
-            `UPDATE gifts SET name = $3, points_cost = $4, stock = $5, photo_url = COALESCE($6, photo_url), available_until = $7,
-                    visible = COALESCE($8, visible), active = COALESCE($9, active)
-              WHERE id = $1 AND shop_id = $2 RETURNING id`,
+            `UPDATE products SET name = $3, points_cost = $4, stock = $5, photo_url = COALESCE($6, photo_url), available_until = $7,
+                    visible = COALESCE($8, visible), active = COALESCE($9, active), updated_at = now()
+              WHERE id = $1 AND shop_id = $2 AND kind = 'redeem' RETURNING id`,
             [g.id, shopId, g.name, g.pointsCost, g.stock, g.photoUrl ?? null, g.availableUntil ?? null, g.visible ?? null, g.active ?? null],
           )).rows[0]
         : (await c.query(
-            `INSERT INTO gifts (shop_id, name, points_cost, stock, photo_url, available_until, visible) VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7,TRUE)) RETURNING id`,
+            `INSERT INTO products (shop_id, name, points_cost, stock, photo_url, available_until, visible) VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7,TRUE)) RETURNING id`,
             [shopId, g.name, g.pointsCost, g.stock, g.photoUrl ?? null, g.availableUntil ?? null, g.visible ?? null],
           )).rows[0];
       if (!r) throw E.notFound('Gift');
@@ -74,7 +78,7 @@ export class OffersService {
   listGifts(shopId: number, onlyVisible = false) {
     return this.db.many(
       `SELECT id, name, photo_url, points_cost, stock, given_count, available_until, visible
-         FROM gifts WHERE shop_id = $1 AND active ${onlyVisible ? 'AND visible' : ''} ORDER BY points_cost`, [shopId],
+         FROM products WHERE shop_id = $1 AND kind = 'redeem' AND active ${onlyVisible ? 'AND visible' : ''} ORDER BY points_cost`, [shopId],
     );
   }
 
@@ -87,9 +91,9 @@ export class OffersService {
                 AND l.points_remaining > 0 AND l.expires_at BETWEEN now() AND now() + interval '30 days')`, params: [],
     };
     if (seg === 'can_afford_gift') return {
-      where: `AND w.balance_points >= (SELECT min(points_cost) FROM gifts g WHERE g.shop_id = w.shop_id AND g.active AND g.visible AND g.stock > 0)`, params: [],
+      where: `AND w.balance_points >= (SELECT min(points_cost) FROM products g WHERE g.shop_id = w.shop_id AND g.kind = 'redeem' AND g.active AND g.visible AND g.stock > 0)`, params: [],
     };
-    if (seg.startsWith('profession:')) return { where: `AND c.profession = $2::profession`, params: [seg.split(':')[1]] };
+    if (seg.startsWith('profession:')) return { where: `AND c.profession = $2`, params: [seg.split(':')[1]] };
     throw E.bad('BAD_SEGMENT', 'Unknown customer group');
   }
 

@@ -8,6 +8,7 @@ import '../../core/format.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import 'message_screen.dart';
+import 'products_screen.dart';
 
 /// Bonus-points offers (one at a time) and the gift catalogue.
 class OffersScreen extends StatefulWidget {
@@ -23,7 +24,7 @@ class _OffersScreenState extends State<OffersScreen> {
   Widget build(BuildContext context) {
     final api = context.read<ApiClient>();
     return Scaffold(
-      appBar: AppBar(title: const Text('Offers & gifts')),
+      appBar: AppBar(title: const Text('Offers')),
       body: AsyncView<List<dynamic>>(
         key: _key,
         load: () => Future.wait([api.sget('offers'), api.sget('gifts')]),
@@ -75,38 +76,15 @@ class _OffersScreenState extends State<OffersScreen> {
                   ),
                 ),
               ),
-            SectionTitle('Gifts customers can take', trailing: TextButton(onPressed: () => _gift(context, null), child: const Text('+ Add gift'))),
-            if (gifts.isEmpty) const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: InfoNote('Tools and useful items work best, e.g. a tool bag at 500 points.')),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: GridView.count(
-                crossAxisCount: 3, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 0.68,
-                children: [
-                  for (final g in gifts)
-                    InkWell(
-                      onTap: () => _gift(context, g),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Expanded(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: g['photo_url'] != null
-                                  ? Image.network('${g['photo_url']}', fit: BoxFit.cover, width: double.infinity, errorBuilder: (_, __, ___) => Container(color: VP.ground))
-                                  : Container(color: VP.ground, child: const Center(child: Icon(Icons.card_giftcard, color: VP.muted))),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text('${g['name']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                          Text('${pts(asNum(g['points_cost']))} pts', style: const TextStyle(fontWeight: FontWeight.w800, color: VP.blue, fontSize: 14)),
-                          Text(asNum(g['stock']) == 0 ? 'Out of stock' : '${g['stock']} left',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: asNum(g['stock']) == 0 ? VP.red : asNum(g['stock']) <= 3 ? VP.amberText : VP.green)),
-                        ]),
-                      ),
-                    ),
-                ],
-              ),
+            const SizedBox(height: 14),
+            WhiteCard(
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ShopProductsScreen())),
+              child: Row(children: [
+                const Icon(Icons.inventory_2_outlined, color: VP.blue),
+                const SizedBox(width: 10),
+                Expanded(child: Text('Gifts & bonus products · ${gifts.length} gifts', style: const TextStyle(fontWeight: FontWeight.w600))),
+                const Icon(Icons.chevron_right),
+              ]),
             ),
             const SizedBox(height: 14),
             WhiteCard(
@@ -129,10 +107,7 @@ class _OffersScreenState extends State<OffersScreen> {
     if (ok == true) _key.currentState?.reload();
   }
 
-  Future<void> _gift(BuildContext context, Map<String, dynamic>? g) async {
-    final ok = await showModalBottomSheet<bool>(context: context, isScrollControlled: true, builder: (_) => _GiftSheet(gift: g));
-    if (ok == true) _key.currentState?.reload();
-  }
+
 }
 
 class _NewOfferSheet extends StatefulWidget {
@@ -207,55 +182,3 @@ class _NewOfferSheetState extends State<_NewOfferSheet> {
   }
 }
 
-class _GiftSheet extends StatefulWidget {
-  const _GiftSheet({this.gift});
-  final Map<String, dynamic>? gift;
-  @override
-  State<_GiftSheet> createState() => _GiftSheetState();
-}
-
-class _GiftSheetState extends State<_GiftSheet> {
-  late final _name = TextEditingController(text: widget.gift?['name'] as String? ?? '');
-  late final _cost = TextEditingController(text: widget.gift?['points_cost']?.toString() ?? '');
-  late final _stock = TextEditingController(text: widget.gift?['stock']?.toString() ?? '');
-  late final _photo = TextEditingController(text: widget.gift?['photo_url'] as String? ?? '');
-  late bool _visible = widget.gift?['visible'] as bool? ?? true;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text(widget.gift == null ? 'Add gift item' : 'Edit gift', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 14),
-          TextField(controller: _name, textCapitalization: TextCapitalization.sentences, decoration: const InputDecoration(labelText: 'Gift name', hintText: 'Electric kettle 1.5 L')),
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(child: TextField(controller: _cost, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: const InputDecoration(labelText: 'Points needed'))),
-            const SizedBox(width: 10),
-            Expanded(child: TextField(controller: _stock, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: const InputDecoration(labelText: 'How many in stock'))),
-          ]),
-          const SizedBox(height: 12),
-          // Photo upload needs a storage bucket (S3/GCS). Until then, paste an image link.
-          TextField(controller: _photo, keyboardType: TextInputType.url, decoration: const InputDecoration(labelText: 'Photo link (optional)')),
-          SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Show in customer app'), subtitle: const Text('Customers see what they can save up for'), value: _visible, onChanged: (v) => setState(() => _visible = v)),
-          const SizedBox(height: 8),
-          BusyButton(
-            label: 'Save gift',
-            color: VP.amber,
-            textColor: VP.ink,
-            onPressed: () async {
-              final cost = int.tryParse(_cost.text), stock = int.tryParse(_stock.text);
-              if (_name.text.trim().length < 2 || cost == null || cost <= 0 || stock == null) throw ApiException(400, 'GIFT', 'Fill name, points and stock');
-              await context.read<ApiClient>().spost('gifts', {
-                if (widget.gift != null) 'id': widget.gift!['id'],
-                'name': _name.text.trim(), 'pointsCost': cost, 'stock': stock, 'visible': _visible,
-                if (_photo.text.trim().startsWith('http')) 'photoUrl': _photo.text.trim(),
-              });
-              if (context.mounted) Navigator.pop(context, true);
-            },
-          ),
-          const SizedBox(height: 4),
-          const Text('Stock goes down when a customer is given the gift', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: VP.muted)),
-        ]),
-      );
-}

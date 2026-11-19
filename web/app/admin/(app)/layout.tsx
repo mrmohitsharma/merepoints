@@ -4,9 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { AlertTriangle, Award, ClipboardList, CreditCard, LayoutDashboard, Loader2, Package, Settings, Store, Tags, UserCog, Users } from 'lucide-react';
+import { AlertTriangle, Award, ClipboardList, CreditCard, LayoutDashboard, Loader2, Package, Settings, Store, Tags, UserCog, Users, Megaphone, HardHat } from 'lucide-react';
 import { Shell } from '@/components/shell';
-import { adminApi, session } from '@/lib/api';
+import { adminApi, API_URL, session } from '@/lib/api';
+import { loadProfessions } from '@/lib/format';
 import { AdminContext, ROLE_LABEL } from '@/lib/admin';
 import type { Admin, AdminRole } from '@/lib/admin';
 
@@ -14,15 +15,16 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const path = usePathname();
   const [admin, setAdmin] = useState<Admin | null>(null);
-  const [counts, setCounts] = useState({ pending: 0, disputes: 0 });
+  const [counts, setCounts] = useState({ pending: 0, disputes: 0, adsReview: 0 });
 
   const refreshCounts = useCallback(() => {
-    adminApi.get('admin/stats').then((s) => setCounts({ pending: s.shops_pending, disputes: s.open_disputes })).catch(() => undefined);
+    Promise.all([adminApi.get('admin/stats'), adminApi.get('admin/ads/counts').catch(() => ({}))])
+      .then(([s, a]: any[]) => setCounts({ pending: s.shops_pending, disputes: s.open_disputes, adsReview: a.pending_review ?? 0 })).catch(() => undefined);
   }, []);
 
   useEffect(() => {
     if (!session.token('admin')) { router.replace('/admin/login/'); return; }
-    adminApi.get<Admin>('admin/auth/me').then((a) => {
+    Promise.all([adminApi.get<Admin>('admin/auth/me'), loadProfessions(API_URL)]).then(([a]) => {
       setAdmin(a);
       if (a.mustChangePassword && !path.startsWith('/admin/account')) router.replace('/admin/account/?first=1');
     }).catch(() => router.replace('/admin/login/'));
@@ -40,7 +42,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { href: '/admin/payments/', label: 'Payments', icon: CreditCard, roles: ['owner', 'ops'] },
     { href: '/admin/plans/', label: 'Plans & SMS packs', icon: Package, roles: ['owner', 'ops'] },
     { href: '/admin/milestones/', label: 'Milestones', icon: Award, roles: ['owner', 'ops', 'support'] },
+    { href: '/admin/ads/', label: 'Home ads', icon: Megaphone, badge: counts.adsReview, roles: ['owner', 'ops', 'support'] },
     { href: '/admin/categories/', label: 'Categories', icon: Tags, roles: ['owner', 'ops', 'support'] },
+    { href: '/admin/work-types/', label: 'Work types', icon: HardHat, roles: ['owner', 'ops', 'support'] },
     { href: '/admin/settings/', label: 'Settings', icon: Settings, roles: ['owner'] },
     { href: '/admin/team/', label: 'Admin team', icon: UserCog, roles: ['owner'] },
     { href: '/admin/audit/', label: 'Audit log', icon: ClipboardList, roles: ['owner'] },

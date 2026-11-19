@@ -162,6 +162,17 @@ export class AdminController {
     }), body));
   }
 
+  // ---------------------------------------------------------------- work types
+  @AdminOnly() @Get('professions') professions() { return this.admin.professions(); }
+
+  @AdminOnly('owner', 'ops') @Post('professions')
+  upsertProfession(@CurrentAdmin() a: AdminCtx, @Body() body: unknown) {
+    return this.admin.upsertProfession(a.id, parse(z.object({
+      code: z.string().regex(/^[a-z][a-z0-9_]{1,29}$/, 'Code: small letters, numbers and _ only'), name: z.string().trim().min(2).max(40),
+      nameHi: z.string().trim().max(40).nullable().optional(), sort: z.number().int().min(0).max(999).optional(), active: z.boolean().optional(),
+    }), body));
+  }
+
   // ---------------------------------------------------------------- settings
   @AdminOnly('owner') @Get('settings') settings() { return this.admin.settings(); }
 

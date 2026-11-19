@@ -98,6 +98,12 @@ export class BillingService {
       const st = await this.db.one(`SELECT ${billingStateSql('ss')} AS state FROM shops s LEFT JOIN shop_subscriptions ss ON ss.shop_id = s.id WHERE s.id = $1`, [shopId]);
       if (st?.state === 'read_only') throw new AppError(402, 'PLAN_EXPIRED', 'Renew your plan first, then buy SMS packs');
     }
+    return this.startOrder(shopId, userId, { kind: b.kind, amountPaise: Number(item.amount), name: item.name,
+      planId: b.kind === 'plan' ? item.id : null, smsPackId: b.kind === 'sms_pack' ? item.id : null });
+  }
+
+  /** Creates the Razorpay order (or a test order) and the 'created' payment row. Shared by plans, SMS packs and ads. */
+  async startOrder(shopId: number, userId: number, o: { kind: 'plan' | 'sms_pack' | 'ad'; amountPaise: number; name: string; planId?: number | null; smsPackId?: number | null; adId?: number | null }) {
     if (!this.testMode && !config.razorpay.keyId) throw new AppError(503, 'PAYMENTS_OFF', 'Online payment is not set up yet. Please contact Vyapar Point.');
     const receipt = receiptNo();
     let orderId: string;
@@ -107,17 +113,17 @@ export class BillingService {
       const res = await fetch('https://api.razorpay.com/v1/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Basic ' + Buffer.from(`${config.razorpay.keyId}:${config.razorpay.keySecret}`).toString('base64') },
-        body: JSON.stringify({ amount: Number(item.amount), currency: 'INR', receipt, notes: { shopId: String(shopId), kind: b.kind } }),
+        body: JSON.stringify({ amount: o.amountPaise, currency: 'INR', receipt, notes: { shopId: String(shopId), kind: o.kind } }),
       });
       if (!res.ok) throw new AppError(502, 'PAYMENT_GATEWAY', 'Could not start the payment. Please try again.');
       orderId = ((await res.json()) as { id: string }).id;
     }
     await this.db.pool.query(
-      `INSERT INTO payments (public_id, shop_id, kind, plan_id, sms_pack_id, amount_paise, provider, order_id, created_by)
-       VALUES ($1,$2,$3::payment_kind,$4,$5,$6,$7,$8,$9)`,
-      [receipt, shopId, b.kind, b.kind === 'plan' ? item.id : null, b.kind === 'sms_pack' ? item.id : null, item.amount, this.testMode ? 'test' : 'razorpay', orderId, userId],
+      `INSERT INTO payments (public_id, shop_id, kind, plan_id, sms_pack_id, ad_id, amount_paise, provider, order_id, created_by)
+       VALUES ($1,$2,$3::payment_kind,$4,$5,$6,$7,$8,$9,$10)`,
+      [receipt, shopId, o.kind, o.planId ?? null, o.smsPackId ?? null, o.adId ?? null, o.amountPaise, this.testMode ? 'test' : 'razorpay', orderId, userId],
     );
-    return { receipt, orderId, amountPaise: Number(item.amount), currency: 'INR', description: item.name, keyId: config.razorpay.keyId || null, testMode: this.testMode };
+    return { receipt, orderId, amountPaise: o.amountPaise, currency: 'INR', description: o.name, keyId: config.razorpay.keyId || null, testMode: this.testMode };
   }
 
   /** Checkout success callback from the app/web. Signature = HMAC(order_id|payment_id, key secret). */
@@ -164,6 +170,10 @@ export class BillingService {
         `UPDATE payments SET status = 'paid', paid_at = now(), provider_payment_id = $2, period_start = $3, period_end = $4, sms_added = $5 WHERE id = $1`,
         [p.id, providerPaymentId, sub.start, end, plan.sms_included],
       );
+    } else if (p.kind === 'ad') {
+      // Paid → waits for Super Admin review. If the ad was cancelled meanwhile, the admin team refunds by hand.
+      await c.query(`UPDATE ads SET status = 'pending_review', updated_at = now() WHERE id = $1 AND status = 'pending_payment'`, [p.ad_id]);
+      await c.query(`UPDATE payments SET status = 'paid', paid_at = now(), provider_payment_id = $2 WHERE id = $1`, [p.id, providerPaymentId]);
     } else {
       const pack = (await c.query('SELECT sms_count FROM sms_packs WHERE id = $1', [p.sms_pack_id])).rows[0];
       await c.query('UPDATE shops SET sms_balance = sms_balance + $2 WHERE id = $1', [p.shop_id, pack.sms_count]);
@@ -178,10 +188,11 @@ export class BillingService {
 
   private async paidResult(c: Q, id: number) {
     const r = (await c.query(
-      `SELECT p.public_id, p.kind, p.amount_paise, p.period_end, p.sms_added, s.sms_balance
+      `SELECT p.public_id, p.kind, p.amount_paise, p.period_end, p.sms_added, p.ad_id, s.sms_balance
          FROM payments p JOIN shops s ON s.id = p.shop_id WHERE p.id = $1`, [id],
     )).rows[0];
-    return { paid: true, receipt: r.public_id, kind: r.kind, amountRupees: rupees(r.amount_paise), periodEnd: r.period_end, smsAdded: r.sms_added, smsBalance: r.sms_balance };
+    return { paid: true, receipt: r.public_id, kind: r.kind, amountRupees: rupees(r.amount_paise), periodEnd: r.period_end, smsAdded: r.sms_added, smsBalance: r.sms_balance,
+      ...(r.ad_id ? { adId: Number(r.ad_id) } : {}) };
   }
 
   // ------------------------------------------------------------------ admin side

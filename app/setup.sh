@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 flutter --version
-flutter create --platforms=android,ios --org in.merepoints --project-name mere_points .
+flutter create --platforms=android,ios --org com.merepoints --project-name mere_points .
 dart run tool/configure_platforms.dart
 flutter pub get
 dart run flutter_launcher_icons

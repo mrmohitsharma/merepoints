@@ -24,3 +24,13 @@ describe('photo uploads (local fallback)', () => {
     await http().post('/v1/uploads').send({ purpose: 'product', contentType: 'image/png', size: 10 }).expect(401);
   });
 });
+
+describe('http hardening', () => {
+  test('security headers and gzip on larger responses', async () => {
+    const r = await http().get('/v1/shops/categories').set('Accept-Encoding', 'gzip').expect(200);
+    expect(r.headers['x-content-type-options']).toBe('nosniff');
+    expect(r.headers['x-powered-by']).toBeUndefined();
+    const big = await http().get('/v1/shops/professions').set('Accept-Encoding', 'gzip').expect(200);
+    if (Number(big.headers['content-length'] ?? 2000) >= 1024 || big.headers['transfer-encoding']) expect(big.headers['content-encoding']).toBe('gzip');
+  });
+});

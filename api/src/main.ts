@@ -2,6 +2,8 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { raw } from 'express';
+import compression from 'compression';
+import helmet from 'helmet';
 import { config } from './config';
 
 /** Production must not start with development secrets or settings. */
@@ -19,6 +21,10 @@ export async function createApp() {
   // rawBody: Razorpay webhooks are verified against the exact bytes received.
   const app = await NestFactory.create(AppModule, { logger: ['error', 'warn'], rawBody: true });
   app.setGlobalPrefix('v1');
+  // Security headers (API only serves JSON and dev files, so no CSP needed) and gzip for slow mobile networks.
+  app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+  app.use(compression({ threshold: 1024 }));
+  app.enableShutdownHooks();
   // Development photo storage: images arrive as raw bytes (production uses S3 presigned uploads).
   app.use('/v1/uploads/local', raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '2mb' }));
   app.enableCors(config.corsOrigins.length ? { origin: config.corsOrigins } : undefined);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Bell, Check, Hammer, HardHat, PaintRoller, QrCode, Store, Wrench, Zap } from 'lucide-react';
 import { pts } from '@/lib/format';
 
@@ -23,9 +23,22 @@ const STEPS = [
 export function HeroFlow() {
   const [step, setStep] = useState(0);
   const [bal, setBal] = useState(1850);
+  const [on, setOn] = useState(true);
+  const box = useRef<HTMLDivElement>(null);
+  // Only animate while the hero is on screen and the tab is visible (saves battery on phones).
+  useEffect(() => {
+    const el = box.current;
+    let seen = true;
+    const upd = () => setOn(seen && document.visibilityState === 'visible');
+    const io = el && 'IntersectionObserver' in window ? new IntersectionObserver(([e]) => { seen = e.isIntersecting; upd(); }) : null;
+    if (io && el) io.observe(el);
+    document.addEventListener('visibilitychange', upd);
+    return () => { io?.disconnect(); document.removeEventListener('visibilitychange', upd); };
+  }, []);
   useEffect(() => {
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     if (reduce) { setStep(8); setBal(2450); return; }
+    if (!on) return;
     let timers: number[] = [];
     const run = () => {
       setBal(1850);
@@ -41,7 +54,7 @@ export function HeroFlow() {
     };
     run();
     return () => timers.forEach(clearTimeout);
-  }, []);
+  }, [on]);
 
   const typed = step >= 1 && step <= 5 ? AMOUNT.slice(0, step) : step > 5 ? AMOUNT : '';
   const amountText = typed ? `₹${pts(Number(typed))}` : '₹0';
@@ -58,7 +71,7 @@ export function HeroFlow() {
   );
 
   return (
-    <div className="relative mx-auto mb-6 aspect-[0.95] w-full max-w-[560px] select-none sm:mb-0 sm:aspect-[1.08]" aria-label="Animated example: a shop adds a ₹12,000 bill and the Site Expert gets 600 points" role="img">
+    <div ref={box} className="relative mx-auto mb-6 aspect-[0.95] w-full max-w-[560px] select-none sm:mb-0 sm:aspect-[1.08]" aria-label="Animated example: a shop adds a ₹12,000 bill and the Site Expert gets 600 points" role="img">
       {/* backdrop */}
       <div className="absolute inset-[6%] rounded-full bg-haldi/25 blur-2xl" />
       <div className="absolute left-1/2 top-1/2 h-[78%] w-[78%] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-dashed border-gold/40 mp-spin-slow" />

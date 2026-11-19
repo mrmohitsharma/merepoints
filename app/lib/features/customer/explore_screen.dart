@@ -5,7 +5,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api.dart';
-import '../../core/format.dart';
 import '../../core/i18n.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
@@ -156,7 +155,7 @@ class _ProductsTabState extends State<ProductsTab> with AutomaticKeepAliveClient
       var p = await Geolocator.checkPermission();
       if (p == LocationPermission.denied) p = await Geolocator.requestPermission();
       if (p == LocationPermission.denied || p == LocationPermission.deniedForever) throw 'Allow location to see products near you';
-      _pos = await Geolocator.getLastKnownPosition() ?? await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium));
+      _pos = await Geolocator.getLastKnownPosition() ?? await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.medium);
       _locError = null;
     } catch (e) {
       if (mounted) setState(() => _locError = '$e');

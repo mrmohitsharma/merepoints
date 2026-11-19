@@ -67,7 +67,7 @@ class _ShopSignupScreenState extends State<ShopSignupScreen> {
       if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
         throw 'Allow location access so customers can find your shop';
       }
-      final p = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.best, timeLimit: Duration(seconds: 25)));
+      final p = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.best, timeLimit: const Duration(seconds: 25));
       setState(() => _pos = p);
     } catch (e) {
       setState(() => _gpsError = '$e');
@@ -326,7 +326,7 @@ class LoyaltyRulesEditor extends StatelessWidget {
       const SizedBox(height: 18),
       const Text('2. Value of 1 point at your shop', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
       const SizedBox(height: 8),
-      ChoiceChips<double>(options: const {0.25: '₹0.25', 0.5: '₹0.50', 1.0: '₹1'}, selected: {pointValue}, onTap: (v) => onChanged(percent, v, minRedeem)),
+      ChoiceChips<double>(options: {0.25: '₹0.25', 0.5: '₹0.50', 1.0: '₹1'}, selected: {pointValue}, onTap: (v) => onChanged(percent, v, minRedeem)),
       const SizedBox(height: 18),
       const Text('3. Minimum points to redeem', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
       const SizedBox(height: 8),

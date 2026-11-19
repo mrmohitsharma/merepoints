@@ -20,7 +20,8 @@ class ProductPhoto extends StatelessWidget {
     );
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
-      child: url == null ? placeholder : Image.network(url!, fit: BoxFit.cover, width: double.infinity, height: double.infinity, errorBuilder: (_, __, ___) => placeholder),
+      // cacheWidth keeps decoded photos small in memory: grids show ~120 px tiles.
+      child: url == null ? placeholder : Image.network(url!, fit: BoxFit.cover, width: double.infinity, height: double.infinity, cacheWidth: 480, errorBuilder: (_, __, ___) => placeholder),
     );
   }
 }

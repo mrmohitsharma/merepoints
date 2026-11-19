@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Gift, Plus, Zap } from 'lucide-react';
-import { Async, Badge, Button, Card, Empty, Field, Input, Modal, Note, PageHeader, Toggle, useAsync, useToast } from '@/components/ui';
+import { Async, Badge, Button, Card, Field, Input, Modal, Note, PageHeader, useAsync, useToast } from '@/components/ui';
 import { merchantApi } from '@/lib/api';
 import { useMerchant } from '@/lib/merchant';
 import { date, istToday, pts, PROFESSIONS } from '@/lib/format';

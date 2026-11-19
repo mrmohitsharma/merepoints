@@ -136,7 +136,7 @@ class _NewOfferSheetState extends State<_NewOfferSheet> {
           const SizedBox(height: 14),
           const Text('Extra points', style: TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
-          ChoiceChips<double>(options: const {1.25: '1.25x', 1.5: '1.5x', 2.0: '2x', 3.0: '3x'}, selected: {_mult}, onTap: (m) => setState(() => _mult = m)),
+          ChoiceChips<double>(options: {1.25: '1.25x', 1.5: '1.5x', 2.0: '2x', 3.0: '3x'}, selected: {_mult}, onTap: (m) => setState(() => _mult = m)),
           const SizedBox(height: 14),
           OutlinedButton.icon(
             icon: const Icon(Icons.date_range),

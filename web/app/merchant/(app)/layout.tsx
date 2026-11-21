@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BarChart3, CreditCard, Gift, HandCoins, LayoutDashboard, ListOrdered, MessageSquare, ScanLine, Settings, Users, UserCog, Loader2, Clock, Package, Megaphone } from 'lucide-react';
+import { BarChart3, CreditCard, Gift, HandCoins, LayoutDashboard, ListOrdered, Bell, ScanLine, Settings, Users, UserCog, Loader2, Clock, Package, Megaphone } from 'lucide-react';
 import { Shell } from '@/components/shell';
 import { Button, Card } from '@/components/ui';
 import { API_URL, merchantApi, session } from '@/lib/api';
@@ -76,7 +76,7 @@ export default function MerchantLayout({ children }: { children: ReactNode }) {
     { href: '/merchant/products/', label: 'Products', icon: Package, owner: true },
     { href: '/merchant/offers/', label: 'Offers', icon: Gift, owner: true },
     { href: '/merchant/ads/', label: 'Home-screen ad', icon: Megaphone, owner: true },
-    { href: '/merchant/messages/', label: 'SMS customers', icon: MessageSquare, owner: true },
+    { href: '/merchant/notifications/', label: 'Notifications', icon: Bell, owner: true },
     { href: '/merchant/reports/', label: 'Reports', icon: BarChart3, owner: true },
     { href: '/merchant/staff/', label: 'Staff', icon: UserCog, owner: true },
     { href: '/merchant/billing/', label: 'Plan & billing', icon: CreditCard, owner: true },

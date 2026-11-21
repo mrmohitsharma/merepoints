@@ -16,6 +16,7 @@ import 'ad_carousel.dart';
 import 'level_up_screen.dart';
 import 'product_detail_screen.dart';
 import 'my_qr_screen.dart';
+import 'notifications_screen.dart';
 import 'received_sheet.dart';
 import 'shop_card_screen.dart';
 
@@ -167,6 +168,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> with WidgetsBin
                   Text(s.name ?? '', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
                 ]),
               ),
+              const NotificationBell(),
               if (ms['current'] != null)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),

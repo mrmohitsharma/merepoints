@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/i18n.dart';
+import '../../core/push.dart';
 import '../../core/theme.dart';
 import 'customer_home_screen.dart';
 import 'history_screen.dart';
 import 'my_qr_screen.dart';
+import 'notifications_screen.dart';
 import 'explore_screen.dart';
 import 'profile_screen.dart';
 
@@ -15,12 +18,44 @@ class CustomerShell extends StatefulWidget {
   State<CustomerShell> createState() => _CustomerShellState();
 }
 
-class _CustomerShellState extends State<CustomerShell> {
+class _CustomerShellState extends State<CustomerShell> with WidgetsBindingObserver {
   int _tab = 0;
   final _exploreTab = ValueNotifier<int>(0);
+  late final Inbox _inbox;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _inbox = context.read<Inbox>();
+    _inbox.openInbox.addListener(_openInbox);
+    _inbox.foreground.addListener(_banner);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _inbox.start());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _inbox.refreshUnread();
+  }
+
+  void _openInbox() {
+    if (mounted) Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+  }
+
+  void _banner() {
+    final n = _inbox.foreground.value;
+    if (n == null || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(n.body.isEmpty ? n.title : '${n.title}\n${n.body}'),
+      action: SnackBarAction(label: 'View', onPressed: _openInbox),
+    ));
+  }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _inbox.openInbox.removeListener(_openInbox);
+    _inbox.foreground.removeListener(_banner);
     _exploreTab.dispose();
     super.dispose();
   }

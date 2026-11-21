@@ -30,16 +30,19 @@ import { UploadsService } from './uploads/uploads.service';
 import { UploadsController } from './uploads/uploads.controller';
 import { AdsService } from './ads/ads.service';
 import { AdminAdsController, CustomerAdsController, ShopAdsController } from './ads/ads.controller';
+import { NotificationsService } from './notifications/notifications.service';
+import { PushService } from './notifications/push.service';
+import { CustomerNotificationsController, ShopNotificationsController } from './notifications/notifications.controller';
 
 @Module({
   imports: [JwtModule.register({ global: true, secret: config.jwtSecret, signOptions: { expiresIn: config.jwtTtl } })],
   controllers: [HealthController, AuthController, ShopRegisterController, ShopController, CustomerController, DiscoverController,
     AdminAuthController, AdminController, ShopBillingController, BillingWebhookController, UploadsController,
-    CustomerAdsController, ShopAdsController, AdminAdsController],
+    CustomerAdsController, ShopAdsController, AdminAdsController, ShopNotificationsController, CustomerNotificationsController],
   providers: [
     Db, SmsService, AuthService, ShopService, PointsService, RedeemService, OffersService, ReportsService,
     CustomerService, MilestoneService, AdminService, AdminAuthService, BillingService, ExpiryService, SchedulerService,
-    ProductsService, UploadsService, AdsService,
+    ProductsService, UploadsService, AdsService, NotificationsService, PushService,
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: AllErrorsFilter },
   ],

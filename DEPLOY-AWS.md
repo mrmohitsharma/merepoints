@@ -121,3 +121,14 @@ flutter build ipa --release --dart-define=API_URL=https://api.merepoints.in/v1  
 - [ ] SMS DLT templates approved and provider connected (includes `ad_approved` / `ad_rejected`)
 - [ ] Uploads bucket private, CloudFront `files.` domain working, `S3_BUCKET` set
 - [ ] CloudWatch alarm on App Runner 5xx errors and RDS CPU/free storage
+
+## Phone push notifications (Firebase, optional)
+
+Notifications always reach the in-app inbox. To also show them on the phone when the app is closed:
+
+1. Create a free project at console.firebase.google.com and add an Android app with id `com.merepoints.mere_points` (and an iOS app if you ship to iPhone; upload your APNs key under Project settings > Cloud Messaging).
+2. API: Project settings > Service accounts > Generate new private key. Put the whole JSON, on one line, in `FCM_SERVICE_ACCOUNT_JSON`.
+3. App: build with `--dart-define=FIREBASE_API_KEY=... --dart-define=FIREBASE_APP_ID=... --dart-define=FIREBASE_SENDER_ID=... --dart-define=FIREBASE_PROJECT_ID=...` (values are in Project settings > Your apps). No google-services.json file is needed.
+4. iPhone only: in Xcode, enable the Push Notifications capability and Background Modes > Remote notifications on the Runner target.
+
+Shops can send up to `NOTIFICATIONS_PER_DAY` (default 5) notifications a day.

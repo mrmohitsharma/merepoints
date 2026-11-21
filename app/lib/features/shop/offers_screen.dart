@@ -7,7 +7,7 @@ import '../../core/api.dart';
 import '../../core/format.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
-import 'message_screen.dart';
+import 'notifications_screen.dart';
 import 'products_screen.dart';
 
 /// Bonus-points offers (one at a time) and the gift catalogue.
@@ -88,9 +88,9 @@ class _OffersScreenState extends State<OffersScreen> {
             ),
             const SizedBox(height: 14),
             WhiteCard(
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MessageScreen())),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ShopNotificationsScreen())),
               child: const Row(children: [
-                Icon(Icons.sms_outlined, color: VP.blue),
+                Icon(Icons.notifications_active_outlined, color: VP.blue),
                 SizedBox(width: 10),
                 Expanded(child: Text('Tell customers about your offers', style: TextStyle(fontWeight: FontWeight.w600))),
                 Icon(Icons.chevron_right),

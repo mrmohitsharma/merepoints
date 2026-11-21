@@ -252,6 +252,7 @@ export class CustomerService {
       if (!u) throw E.notFound('Account');
       await c.query(`UPDATE customers SET city = NULL, upi_id = NULL, upi_verified_name = NULL, photo_url = NULL, profession = 'other', professions = '{other}', area = NULL, state = NULL, pincode = NULL, lat = NULL, lng = NULL, sms_on_earn = FALSE WHERE user_id = $1`, [userId]);
       await c.query(`DELETE FROM shop_members WHERE user_id = $1`, [userId]);
+      await c.query(`DELETE FROM device_tokens WHERE user_id = $1`, [userId]);
       await c.query(`INSERT INTO audit_log (actor_id, action, entity, entity_id) VALUES ($1, 'account.delete', 'user', $2)`, [userId, String(userId)]);
       return { deleted: true };
     });

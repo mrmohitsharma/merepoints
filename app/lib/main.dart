@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'core/api.dart';
 import 'core/format.dart';
 import 'core/i18n.dart';
+import 'core/push.dart';
 import 'core/session.dart';
 import 'core/theme.dart';
 import 'features/auth/language_screen.dart';
@@ -19,12 +20,15 @@ void main() {
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   final api = ApiClient();
   final session = Session(api)..boot();
+  final inbox = Inbox(api);
+  session.beforeSignOut = inbox.stop;
   loadProfessions(() => api.get('shops/professions'));
   runApp(
     MultiProvider(
       providers: [
         Provider<ApiClient>.value(value: api),
         ChangeNotifierProvider<Session>.value(value: session),
+        ChangeNotifierProvider<Inbox>.value(value: inbox),
       ],
       child: const MerePointsApp(),
     ),

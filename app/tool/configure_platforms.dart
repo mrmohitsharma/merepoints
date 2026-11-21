@@ -28,6 +28,7 @@ void _android() {
       'android.permission.CAMERA',
       'android.permission.ACCESS_FINE_LOCATION',
       'android.permission.ACCESS_COARSE_LOCATION',
+      'android.permission.POST_NOTIFICATIONS', // Android 13+: shop offers and updates
     ];
     for (final p in perms) {
       if (!s.contains(p)) s = s.replaceFirst('<application', '<uses-permission android:name="$p"/>\n    <application');

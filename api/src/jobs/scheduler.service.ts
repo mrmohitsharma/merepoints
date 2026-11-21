@@ -3,6 +3,7 @@ import { Db } from '../db/db.service';
 import { SmsService, SMS } from '../sms/sms.service';
 import { RedeemService } from '../redeem/redeem.service';
 import { ExpiryService } from './expiry.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { billingStateSql } from '../billing/state';
 
 type Job = { name: string; everyMs: number; run: () => Promise<unknown> };
@@ -17,11 +18,12 @@ export class SchedulerService implements OnApplicationBootstrap, OnApplicationSh
   private readonly log = new Logger('jobs');
   private timers: NodeJS.Timeout[] = [];
 
-  constructor(private db: Db, private sms: SmsService, private redeem: RedeemService, private expiry: ExpiryService) {}
+  constructor(private db: Db, private sms: SmsService, private redeem: RedeemService, private expiry: ExpiryService, private notifications: NotificationsService) {}
 
   private jobs(): Job[] {
     return [
       { name: 'send-sms', everyMs: 15_000, run: async () => { let n = 0, sent; do { sent = await this.sms.deliverBatch(100); n += sent; } while (sent === 100 && n < 2000); return n; } },
+      { name: 'send-notifications', everyMs: 30_000, run: () => this.notifications.sendDue() },
       { name: 'escalate-redemptions', everyMs: 10 * 60_000, run: () => this.redeem.escalateStale() },
       { name: 'expire-points', everyMs: 60 * 60_000, run: () => this.expiry.run() },
       { name: 'plan-reminders', everyMs: 60 * 60_000, run: () => this.planReminders() },

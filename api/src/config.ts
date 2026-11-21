@@ -16,6 +16,10 @@ export const config = {
   maxGpsAccuracyM: 100,
   /** Google OAuth client IDs (web + Android + iOS), comma separated. Needed for Google sign-in. */
   googleClientIds: (process.env.GOOGLE_CLIENT_IDS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+  /** Firebase Cloud Messaging (phone push). Paste the service-account JSON (or leave empty: notifications still reach the in-app inbox). */
+  fcm: { serviceAccountJson: process.env.FCM_SERVICE_ACCOUNT_JSON ?? '' },
+  /** Notifications a shop may send per day (stops spamming Site Experts). */
+  notificationsPerDay: Number(process.env.NOTIFICATIONS_PER_DAY ?? 5),
   /** Wrong passwords before an account waits {lockMinutes} minutes. */
   loginMaxFails: 5,
   loginLockMinutes: 15,

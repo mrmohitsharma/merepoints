@@ -46,6 +46,8 @@ class Session extends ChangeNotifier {
 
   final ApiClient api;
   final FlutterSecureStorage _store;
+  /// Runs while the token is still valid (e.g. to unregister this phone from push).
+  Future<void> Function()? beforeSignOut;
 
   SessionState state = SessionState.loading;
   String language = 'en';
@@ -151,7 +153,16 @@ class Session extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool _signingOut = false;
+
   Future<void> signOut() async {
+    if (_signingOut) return; // a 401 from the clean-up call must not start a second sign-out
+    _signingOut = true;
+    try {
+      if (api.token != null) await beforeSignOut?.call();
+    } catch (_) {
+      // best effort
+    }
     await _store.delete(key: 'token');
     await _store.delete(key: 'role');
     api.token = null;
@@ -161,6 +172,7 @@ class Session extends ChangeNotifier {
     isCustomer = false;
     active = null;
     state = SessionState.signedOut;
+    _signingOut = false;
     notifyListeners();
   }
 }

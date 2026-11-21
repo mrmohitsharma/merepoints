@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api.dart';
 import '../../core/format.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/qr_scanner.dart';
 import 'add_points_screen.dart';
 import 'redeem_screen.dart';
 
@@ -21,16 +21,14 @@ class FindCustomerScreen extends StatefulWidget {
 }
 
 class _FindCustomerScreenState extends State<FindCustomerScreen> {
-  final _scanner = MobileScannerController(detectionSpeed: DetectionSpeed.noDuplicates, formats: const [BarcodeFormat.qrCode]);
   final _mobile = TextEditingController();
   bool _resolving = false;
   Map<String, dynamic>? _found;
   bool _notFound = false;
-  bool _torch = false;
 
   @override
   void dispose() {
-    _scanner.dispose();
+    _mobile.dispose();
     super.dispose();
   }
 
@@ -83,52 +81,13 @@ class _FindCustomerScreenState extends State<FindCustomerScreen> {
       backgroundColor: Colors.white,
       body: Column(children: [
         SizedBox(
-          height: 360,
-          child: Stack(fit: StackFit.expand, children: [
-            Container(color: const Color(0xFF10161D)),
-            MobileScanner(
-              controller: _scanner,
-              onDetect: (cap) {
-                final v = cap.barcodes.firstOrNull?.rawValue;
-                if (v != null && v.startsWith('VP1.')) _resolve({'qr': v});
-              },
-              errorBuilder: (context, error, child) => const Center(
-                child: Padding(padding: EdgeInsets.all(24), child: Text('Camera not available. Search by mobile below.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white70))),
-              ),
-            ),
-            Center(
-              child: Container(
-                width: 210, height: 210,
-                decoration: BoxDecoration(border: Border.all(color: Colors.white, width: 4), borderRadius: BorderRadius.circular(18)),
-              ),
-            ),
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Row(children: [
-                  IconButton.filledTonal(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.arrow_back)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(widget.purpose == FindPurpose.earn ? 'Scan customer QR to add points' : 'Scan customer QR to redeem',
-                        style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700)),
-                  ),
-                  IconButton.filledTonal(
-                    tooltip: 'Torch',
-                    onPressed: () {
-                      _scanner.toggleTorch();
-                      setState(() => _torch = !_torch);
-                    },
-                    icon: Icon(_torch ? Icons.flash_on : Icons.flash_off),
-                  ),
-                ]),
-              ),
-            ),
-            const Positioned(
-              bottom: 30, left: 0, right: 0,
-              child: Text('Ask the customer to open Mere Points › My QR', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFFC3CCD6))),
-            ),
-            if (_resolving) const Center(child: CircularProgressIndicator(color: Colors.white)),
-          ]),
+          height: 380,
+          child: QrScannerView(
+            title: widget.purpose == FindPurpose.earn ? 'Scan customer QR to add points' : 'Scan customer QR to redeem',
+            hint: 'Ask the customer to open Mere Points › My QR',
+            busy: _resolving,
+            onCode: (v) => _resolve({'qr': v}),
+          ),
         ),
         Expanded(
           child: ListView(padding: const EdgeInsets.all(16), children: [

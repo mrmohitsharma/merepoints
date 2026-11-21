@@ -80,7 +80,7 @@ export class AdsService {
          LEFT JOIN shops ts ON ts.id = a.shop_id
          LEFT JOIN products lp ON lp.id = a.link_product_id
         WHERE a.status = 'scheduled' AND a.starts_at <= now() AND a.ends_at > now()
-          AND (a.professions IS NULL OR c.profession = ANY(a.professions))
+          AND (a.professions IS NULL OR c.professions && a.professions)
           AND (a.link_kind <> 'product' OR (lp.active AND lp.visible))
           AND (a.target_mode = 'all'
                OR (a.target_mode = 'cities' AND lower(COALESCE(c.city, '')) = ANY(SELECT lower(x) FROM unnest(a.cities) x))
@@ -276,7 +276,7 @@ export class AdsService {
   /** "Matches N customers" on the form. */
   async audience(t: { mode: 'all' | 'cities' | 'near_shop'; cities?: string[]; shopId?: number; radiusKm?: number; professions?: string[] | null }) {
     const params: unknown[] = [t.professions?.length ? t.professions : null];
-    let where = `($1::text[] IS NULL OR c.profession = ANY($1))`;
+    let where = `($1::text[] IS NULL OR c.professions && $1::text[])`;
     if (t.mode === 'cities') {
       params.push((t.cities ?? []).map((x) => x.toLowerCase()));
       where += ` AND lower(COALESCE(c.city,'')) = ANY($2)`;

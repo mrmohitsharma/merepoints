@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Award, CheckCircle2, Gift, RotateCcw, Search, UserPlus } from 'lucide-react';
+import { Award, CheckCircle2, Gift, QrCode, RotateCcw, Search, UserPlus } from 'lucide-react';
 import { Badge, Button, Card, Field, Initials, Input, Note, PageHeader, Select, Tabs, useToast } from '@/components/ui';
 import { PayPanel } from '@/components/pay-panel';
 import { merchantApi, newKey } from '@/lib/api';
@@ -9,6 +9,7 @@ import { rateFor, useMerchant } from '@/lib/merchant';
 import type { Slab } from '@/lib/merchant';
 import { inr, mobile, n, pts, PROFESSIONS } from '@/lib/format';
 import { Thumb } from '@/components/thumb';
+import { QrScanDialog } from '@/components/qr-scan';
 
 type Customer = {
   id: number; name: string; mobile: string; profession: string; upiId: string | null; level: string | null;
@@ -35,6 +36,7 @@ export default function Counter() {
   const [busy, setBusy] = useState(false);
   const [cust, setCust] = useState<Customer | null>(null);
   const [notFound, setNotFound] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
   const [tab, setTab] = useState<'earn' | 'redeem'>('earn');
   const [offer, setOffer] = useState<Offer | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -54,6 +56,7 @@ export default function Counter() {
       if (!body.qr && !/^[6-9]\d{9}$/.test(body.mobile!)) { toast.error('Enter a 10-digit mobile number'); return; }
       const r = await merchantApi.post('shop/customers/resolve', body);
       if (r.found) { setCust(r.customer); setTab('earn'); }
+      else if (body.qr) { setCust(null); toast.error('This QR is not valid or has expired. Ask the customer to open My QR again.'); }
       else { setCust(null); setNotFound(body.mobile!); }
     } catch (e) { toast.error(e); } finally { setBusy(false); }
   }
@@ -70,9 +73,12 @@ export default function Counter() {
             <Input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Customer's mobile number (or scan QR with a USB scanner)" className="h-12 pl-10 text-base" />
           </div>
           <Button size="lg" busy={busy}>Find</Button>
+          <Button type="button" size="lg" variant="secondary" onClick={() => setScanning(true)}><QrCode size={18} /> Scan QR</Button>
           {(cust || notFound) && <Button type="button" size="lg" variant="secondary" onClick={reset}>Next customer</Button>}
         </form>
       </Card>
+
+      {scanning && <QrScanDialog onClose={() => setScanning(false)} onCode={(code) => { setScanning(false); setQ(''); find(code); }} />}
 
       {notFound && <QuickAdd mobileNo={notFound} disabled={readOnly} onAdded={() => find(notFound)} />}
 

@@ -14,6 +14,11 @@ export const config = {
   otpMaxPerHour: 5,
   otpMaxAttempts: 5,
   maxGpsAccuracyM: 100,
+  /** Google OAuth client IDs (web + Android + iOS), comma separated. Needed for Google sign-in. */
+  googleClientIds: (process.env.GOOGLE_CLIENT_IDS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+  /** Wrong passwords before an account waits {lockMinutes} minutes. */
+  loginMaxFails: 5,
+  loginLockMinutes: 15,
   /** Leave empty to run billing in test mode (no real money). */
   razorpay: {
     keyId: process.env.RAZORPAY_KEY_ID ?? '',

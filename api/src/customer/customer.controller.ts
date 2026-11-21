@@ -17,7 +17,9 @@ export class CustomerController {
   @Post('customer')
   register(@CurrentUser() u: AuthUser, @Body() body: unknown) {
     return this.customers.register(u.id, parse(z.object({
-      name: z.string().trim().min(2).max(80), profession: profession, city: z.string().optional(),
+      name: z.string().trim().min(2).max(80), profession: profession.optional(), professions: z.array(profession).min(1).max(3).optional(),
+      city: z.string().trim().max(80).optional(), area: z.string().trim().max(120).optional(), state: z.string().trim().max(80).optional(),
+      pincode: z.string().regex(/^\d{6}$/).optional(), lat: z.number().min(-90).max(90).optional(), lng: z.number().min(-180).max(180).optional(),
       upiId: z.string().optional(), language: z.string().optional(), photoUrl: z.string().url().optional(),
     }), body));
   }
@@ -26,7 +28,7 @@ export class CustomerController {
   settings(@CurrentUser() u: AuthUser, @Body() body: unknown) {
     return this.customers.updateSettings(u.id, parse(z.object({
       upiId: z.string().optional(), language: z.string().optional(), smsOnEarn: z.boolean().optional(),
-      profession: profession.optional(), city: z.string().optional(),
+      profession: profession.optional(), professions: z.array(profession).min(1).max(3).optional(), city: z.string().optional(), area: z.string().optional(),
     }), body));
   }
 

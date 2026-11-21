@@ -23,6 +23,7 @@
     "@nestjs/jwt": "^10.2.0",
     "@nestjs/platform-express": "^10.4.22",
     "compression": "^1.8.2",
+    "google-auth-library": "^9.15.1",
     "helmet": "^8.3.0",
     "pg": "^8.23.1",
     "reflect-metadata": "^0.2.2",

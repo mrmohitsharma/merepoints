@@ -99,6 +99,7 @@ class _LoyaltySettingsScreenState extends State<LoyaltySettingsScreen> {
   final _minBill = TextEditingController();
   int? _expiryDays;
   List<RewardSlab>? _slabs;
+  List<RewardSlab>? _lastSlabs; // last ranges shown, kept when the owner flips to one flat %
 
   @override
   void initState() {
@@ -113,6 +114,7 @@ class _LoyaltySettingsScreenState extends State<LoyaltySettingsScreen> {
         _minBill.text = asNum(c['minBillRupees']) == 0 ? '' : '${asNum(c['minBillRupees']).round()}';
         _expiryDays = c['expiryDays'] as int?;
         _slabs = RewardSlab.listFrom(c['rewardSlabs']);
+        _lastSlabs = _slabs;
       });
     }).catchError((e) {
       if (mounted) showError(context, e);
@@ -136,8 +138,16 @@ class _LoyaltySettingsScreenState extends State<LoyaltySettingsScreen> {
       'payoutCash': c['payoutCash'],
       'payoutUpi': c['payoutUpi'],
     }, shop: true);
+    // Read it back: never tell the owner "Saved" unless the server really holds what is on screen.
+    final back = await context.read<ApiClient>().sget('config') as Map;
+    final got = RewardSlab.listFrom(back['rewardSlabs']);
+    final same = (got == null && _slabs == null) ||
+        (got != null && _slabs != null && got.length == _slabs!.length && [for (var i = 0; i < got.length; i++) got[i].fromRupees == _slabs![i].fromRupees && (got[i].percent - _slabs![i].percent).abs() < 0.006].every((e) => e));
+    if (!same) {
+      throw ApiException(500, 'NOT_SAVED', 'The server did not keep these ranges. Please update the Mere Points server and try again.');
+    }
     if (mounted) {
-      showOk(context, 'Saved. New rules apply to new bills from now.');
+      showOk(context, 'Saved (version ${back['version']}). New rules apply to new bills from now.');
       Navigator.pop(context);
     }
   }
@@ -164,7 +174,11 @@ class _LoyaltySettingsScreenState extends State<LoyaltySettingsScreen> {
               LoyaltyRulesEditor(
                 percent: asNum(c['rewardPercent']).toDouble(),
                 slabs: _slabs,
-                onSlabsChanged: (s) => setState(() => _slabs = s),
+                draftSlabs: _lastSlabs,
+                onSlabsChanged: (s) => setState(() {
+                  _slabs = s;
+                  if (s != null) _lastSlabs = s;
+                }),
                 pointValue: asNum(c['pointValueRupees']).toDouble(),
                 minRedeem: asNum(c['minRedeemPoints']).toInt(),
                 onChanged: (p, v, m) => setState(() {
@@ -188,7 +202,7 @@ class _LoyaltySettingsScreenState extends State<LoyaltySettingsScreen> {
               CheckboxListTile(contentPadding: EdgeInsets.zero, title: const Text('Cash'), value: c['payoutCash'] == true, onChanged: (v) => setState(() => c['payoutCash'] = v)),
               CheckboxListTile(contentPadding: EdgeInsets.zero, title: const Text('UPI'), value: c['payoutUpi'] == true, onChanged: (v) => setState(() => c['payoutUpi'] = v)),
               const SizedBox(height: 8),
-              const InfoNote('Changes apply to new bills only. Points already earned keep the value they had when earned.', icon: Icons.info_outline, color: VP.blue),
+              InfoNote('Rules version ${c['version'] ?? 1}. Changes apply to new bills only. Points already earned keep the value they had when earned.', icon: Icons.info_outline, color: VP.blue),
             ]),
       bottomNavigationBar: c == null ? null : BottomAction(child: BusyButton(label: context.t('save'), onPressed: _save)),
     );

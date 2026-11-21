@@ -93,7 +93,7 @@ export class OffersService {
     if (seg === 'can_afford_gift') return {
       where: `AND w.balance_points >= (SELECT min(points_cost) FROM products g WHERE g.shop_id = w.shop_id AND g.kind = 'redeem' AND g.active AND g.visible AND g.stock > 0)`, params: [],
     };
-    if (seg.startsWith('profession:')) return { where: `AND c.profession = $2`, params: [seg.split(':')[1]] };
+    if (seg.startsWith('profession:')) return { where: `AND $2 = ANY(c.professions)`, params: [seg.split(':')[1]] };
     throw E.bad('BAD_SEGMENT', 'Unknown customer group');
   }
 

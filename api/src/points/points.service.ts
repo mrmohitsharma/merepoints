@@ -79,14 +79,14 @@ export class PointsService {
       if (amountPaise < Number(cfg.min_bill_paise)) {
         throw E.bad('BELOW_MIN_BILL', `Minimum bill for points is ₹${Number(cfg.min_bill_paise) / 100}`);
       }
-      const cust = (await c.query('SELECT c.profession, u.mobile, c.sms_on_earn FROM customers c JOIN users u ON u.id = c.user_id WHERE c.user_id = $1', [input.customerId])).rows[0];
+      const cust = (await c.query('SELECT c.profession, c.professions, u.mobile, c.sms_on_earn FROM customers c JOIN users u ON u.id = c.user_id WHERE c.user_id = $1', [input.customerId])).rows[0];
       if (!cust) throw E.notFound('Customer');
 
       // Live offer for this customer's profession. The exclusion constraint's GiST index answers this.
       const offer = (await c.query(
         `SELECT id, name, multiplier_x100 FROM offers
-          WHERE shop_id = $1 AND NOT cancelled AND period @> now() AND (professions IS NULL OR $2 = ANY(professions))`,
-        [shop.id, cust.profession],
+          WHERE shop_id = $1 AND NOT cancelled AND period @> now() AND (professions IS NULL OR professions && $2::text[])`,
+        [shop.id, cust.professions?.length ? cust.professions : [cust.profession]],
       )).rows[0] ?? null;
 
       // Points = bill × % (the bill's slab sets the %), then offer multiplier, then the shop's per-bill cap.

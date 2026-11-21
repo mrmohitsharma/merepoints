@@ -322,19 +322,19 @@ export class AdminService {
   // ================================================================ work types (professions)
   professions() {
     return this.db.many(
-      `SELECT p.code, p.name, p.name_hi, p.sort, p.active, (SELECT count(*)::int FROM customers c WHERE c.profession = p.code) AS customers
+      `SELECT p.code, p.name, p.name_hi, p.icon, p.sort, p.active, (SELECT count(*)::int FROM customers c WHERE p.code = ANY(c.professions)) AS customers
          FROM professions p ORDER BY p.sort, p.name`,
     );
   }
 
-  async upsertProfession(adminId: number, b: { code: string; name: string; nameHi?: string | null; sort?: number; active?: boolean }) {
+  async upsertProfession(adminId: number, b: { code: string; name: string; nameHi?: string | null; icon?: string | null; sort?: number; active?: boolean }) {
     if (b.code === 'other' && b.active === false) throw E.bad('KEEP_OTHER', '"Other" must stay on — customers fall back to it');
     return this.db.tx(async (c) => {
       await c.query(
-        `INSERT INTO professions (code, name, name_hi, sort, active) VALUES ($1,$2,$3,COALESCE($4,50),COALESCE($5,TRUE))
-         ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name, name_hi = COALESCE($3, professions.name_hi),
+        `INSERT INTO professions (code, name, name_hi, icon, sort, active) VALUES ($1,$2,$3,$6,COALESCE($4,50),COALESCE($5,TRUE))
+         ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name, name_hi = COALESCE($3, professions.name_hi), icon = COALESCE($6, professions.icon),
            sort = COALESCE($4, professions.sort), active = COALESCE($5, professions.active)`,
-        [b.code, b.name, b.nameHi ?? null, b.sort ?? null, b.active ?? null],
+        [b.code, b.name, b.nameHi ?? null, b.sort ?? null, b.active ?? null, b.icon ?? null],
       );
       await this.shops.audit(c, A(adminId), null, 'profession.upsert', 'profession', b.code, b);
       return { code: b.code };

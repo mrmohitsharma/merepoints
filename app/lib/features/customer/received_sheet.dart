@@ -5,6 +5,7 @@ import '../../core/api.dart';
 import '../../core/format.dart';
 import '../../core/i18n.dart';
 import '../../core/theme.dart';
+import '../../widgets/celebration.dart';
 import '../../widgets/common.dart';
 
 /// "Did you receive ₹1,000?" — the redemption is valid only after the customer taps Received.
@@ -65,8 +66,14 @@ class _ReceivedSheet extends StatelessWidget {
             onPressed: () async {
               await api.post('me/redemptions/${p['id']}/received');
               if (context.mounted) {
+                final root = Navigator.of(context).context; // stays valid after the sheet closes
                 Navigator.pop(context);
-                showOk(context, 'Done. ${pts(asNum(p['points']))} points redeemed.');
+                await showCelebration(
+                  root,
+                  points: asNum(p['points']).toInt(),
+                  ribbon: gift ? 'Gift received!' : 'Money received!',
+                  line: gift ? 'Enjoy your ${p['gift_name']} from ${p['shop_name']}.' : 'Your points turned into ${rupees(asNum(p['value_rupees']))}. Keep earning!',
+                );
               }
             },
           ),

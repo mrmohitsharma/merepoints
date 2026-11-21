@@ -10,6 +10,8 @@ import { safeEqual } from '../common/util';
 
 export const UPLOAD_TYPES: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 export const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
+// Signed into the S3 URL, so the app must send the same header or S3 answers 403 SignatureDoesNotMatch.
+const CACHE_CONTROL = 'public, max-age=31536000, immutable';
 export type UploadPurpose = 'product' | 'ad' | 'logo' | 'bill';
 
 /**
@@ -31,9 +33,9 @@ export class UploadsService {
     const key = `${purpose}/${day}/${owner}-${randomBytes(9).toString('base64url')}.${ext}`;
     if (this.s3) {
       const uploadUrl = await getSignedUrl(this.s3, new PutObjectCommand({
-        Bucket: config.uploads.bucket, Key: key, ContentType: contentType, ContentLength: size, CacheControl: 'public, max-age=31536000, immutable',
+        Bucket: config.uploads.bucket, Key: key, ContentType: contentType, ContentLength: size, CacheControl: CACHE_CONTROL,
       }), { expiresIn: 600 });
-      return { uploadUrl, method: 'PUT' as const, headers: { 'Content-Type': contentType }, url: `${config.uploads.publicBaseUrl.replace(/\/$/, '')}/${key}` };
+      return { uploadUrl, method: 'PUT' as const, headers: { 'Content-Type': contentType, 'Cache-Control': CACHE_CONTROL }, url: `${config.uploads.publicBaseUrl.replace(/\/$/, '')}/${key}` };
     }
     const exp = Math.floor(Date.now() / 1000) + 600;
     const sig = this.sign(key, contentType, exp);

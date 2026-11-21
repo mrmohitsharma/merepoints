@@ -42,7 +42,7 @@ export class ShopRegisterController {
   /** Work types for sign-up pickers and offer targeting. Editable by Super Admin. */
   @Public() @Get('professions')
   professions() {
-    return this.db.many(`SELECT code, name, name_hi AS "nameHi" FROM professions WHERE active ORDER BY sort, name`);
+    return this.db.many(`SELECT code, name, name_hi AS "nameHi", icon FROM professions WHERE active ORDER BY sort, name`);
   }
 }
 

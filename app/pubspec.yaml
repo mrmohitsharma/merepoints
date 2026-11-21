@@ -16,7 +16,11 @@ dependencies:
   provider: ^6.1.2
   flutter_secure_storage: ^9.2.2
   mobile_scanner: ^5.2.3        # camera QR scanning (shop counter)
+  audioplayers: ^6.1.0          # celebration sound
+  google_sign_in: ^6.2.2        # Google login (needs GOOGLE_WEB_CLIENT_ID at build time)
+  permission_handler: ^11.3.1   # explicit camera permission step + open settings
   qr_flutter: ^4.1.0            # customer's rotating QR
+  geocoding: ^3.0.0             # GPS to city / area, done on the phone
   geolocator: ^12.0.0           # shop GPS at sign-up, nearby shops
   url_launcher: ^6.3.0          # UPI apps, phone calls, maps
   share_plus: ^10.1.4           # share CSV reports
@@ -53,6 +57,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/brand/
+    - assets/sounds/
   # Mukta covers Latin + Devanagari. Drop the TTFs in assets/fonts and uncomment.
   # fonts:
   #   - family: Mukta

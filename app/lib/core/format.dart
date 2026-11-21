@@ -59,6 +59,13 @@ final Map<String, String> professions = {
   'other': 'Other',
 };
 
+/// Emoji shown with each work type (Super Admin can change them). Built-in until the API list loads.
+final Map<String, String> professionIcons = {
+  'carpenter': '🪚', 'painter': '🖌️', 'contractor': '👷', 'interior_designer': '🛋️', 'architect': '📐', 'plumber': '🔧',
+  'electrician': '⚡', 'mason': '🧱', 'tile_fitter': '🔲', 'pop_ceiling': '🏠', 'fabricator': '🔥', 'kitchen_installer': '🍳',
+  'builder': '🏗️', 'other': '➕',
+};
+
 /// Hindi names from the API, used when the app language is Hindi.
 final Map<String, String> professionsHi = {};
 
@@ -72,6 +79,9 @@ Future<void> loadProfessions(Future<dynamic> Function() fetch) async {
     professionsHi
       ..clear()
       ..addEntries(list.where((p) => p['nameHi'] != null).map((p) => MapEntry('${p['code']}', '${p['nameHi']}')));
+    for (final p in list) {
+      if (p['icon'] != null && '${p['icon']}'.isNotEmpty) professionIcons['${p['code']}'] = '${p['icon']}';
+    }
   } catch (_) {
     // keep the built-in list
   }

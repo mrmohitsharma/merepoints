@@ -65,6 +65,12 @@ void _ios() {
         s = s.replaceFirst('<dict>', '<dict>\n\t<key>${e.key}</key>\n\t${e.value}');
       }
     }
+    // Google sign-in on iPhone needs the iOS OAuth client ID: GOOGLE_IOS_CLIENT_ID=xxxx.apps.googleusercontent.com dart run tool/configure_platforms.dart
+    final iosId = Platform.environment['GOOGLE_IOS_CLIENT_ID'];
+    if (iosId != null && iosId.isNotEmpty && !s.contains('<key>GIDClientID</key>')) {
+      final reversed = iosId.split('.').reversed.join('.');
+      s = s.replaceFirst('<dict>', '<dict>\n\t<key>GIDClientID</key>\n\t<string>$iosId</string>\n\t<key>CFBundleURLTypes</key>\n\t<array><dict><key>CFBundleURLSchemes</key><array><string>$reversed</string></array></dict></array>');
+    }
     s = s.replaceFirstMapped(RegExp(r'(<key>CFBundleDisplayName</key>\s*<string>)[^<]*(</string>)'), (m) => '${m[1]}Mere Points${m[2]}');
     return s;
   });
@@ -72,6 +78,14 @@ void _ios() {
   if (podfile.existsSync()) {
     final p = podfile.readAsStringSync();
     final fixed = p.replaceFirst(RegExp(r"#?\s*platform :ios, '[\d.]+'"), "platform :ios, '13.0'");
-    if (fixed != p) podfile.writeAsStringSync(fixed);
+    var out = fixed;
+    // permission_handler only includes the permissions switched on here.
+    if (!out.contains('PERMISSION_CAMERA')) {
+      out = out.replaceFirst(
+        'flutter_additional_ios_build_settings(target)',
+        "flutter_additional_ios_build_settings(target)\n    target.build_configurations.each do |config|\n      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['\$(inherited)', 'PERMISSION_CAMERA=1', 'PERMISSION_PHOTOS=1']\n    end",
+      );
+    }
+    if (out != p) podfile.writeAsStringSync(out);
   }
 }

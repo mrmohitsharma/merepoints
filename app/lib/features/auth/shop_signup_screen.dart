@@ -281,7 +281,7 @@ class _ShopSignupScreenState extends State<ShopSignupScreen> {
 class LoyaltyRulesEditor extends StatelessWidget {
   const LoyaltyRulesEditor({
     super.key, required this.percent, required this.pointValue, required this.minRedeem, required this.onChanged,
-    this.slabs, this.onSlabsChanged,
+    this.slabs, this.onSlabsChanged, this.draftSlabs,
   });
   final double percent;
   final double pointValue;
@@ -290,6 +290,8 @@ class LoyaltyRulesEditor extends StatelessWidget {
   /// null = one % for all bills.
   final List<RewardSlab>? slabs;
   final ValueChanged<List<RewardSlab>?>? onSlabsChanged;
+  /// Ranges the owner had before switching to "one % for all": coming back restores them instead of resetting to defaults.
+  final List<RewardSlab>? draftSlabs;
 
   static const _steps = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 7.5, 8.0, 10.0, 12.0, 15.0, 20.0];
   static String pct(double p) => p == p.roundToDouble() ? '${p.round()}%' : '$p%';
@@ -309,7 +311,9 @@ class LoyaltyRulesEditor extends StatelessWidget {
           labels: const ['One % for all bills', '% by bill amount'],
           index: byAmount ? 1 : 0,
           onChanged: (i) => onSlabsChanged!(i == 1
-              ? [RewardSlab(0, percent), RewardSlab(10000, (percent + 2).clamp(0.5, 50).toDouble()), RewardSlab(20000, (percent + 4).clamp(0.5, 50).toDouble())]
+              ? (draftSlabs != null && draftSlabs!.length >= 2
+                  ? [for (final s in draftSlabs!) RewardSlab(s.fromRupees, s.percent)]
+                  : [RewardSlab(0, percent), RewardSlab(10000, (percent + 2).clamp(0.5, 50).toDouble()), RewardSlab(20000, (percent + 4).clamp(0.5, 50).toDouble())])
               : null),
         ),
       ],

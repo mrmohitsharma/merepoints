@@ -20,6 +20,7 @@ export const E = {
 /** Maps Postgres constraint errors that can legitimately reach the API to clean 409s. */
 const PG_CONSTRAINT_MAP: Record<string, [string, string, number?]> = {
   customers_profession_fk: ['BAD_WORK_TYPE', 'Pick a work type from the list', 400],
+  users_email_key: ['EMAIL_TAKEN', 'This email is already registered. Log in instead.'],
   bills_unique_invoice: ['DUPLICATE_INVOICE', 'This invoice number already got points at your shop'],
   redemptions_one_open: ['REDEMPTION_OPEN', 'This customer already has a redemption in progress at your shop'],
   offers_no_overlap: ['OFFER_OVERLAP', 'Another offer already runs in these dates. Only one offer at a time.'],

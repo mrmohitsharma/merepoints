@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomInt, timingSafeEqual } from 'crypto';
+import { createHash, createHmac, randomBytes, randomInt, scrypt as scryptCb, timingSafeEqual } from 'crypto';
 import { z } from 'zod';
 import { E } from './errors';
 
@@ -43,4 +43,18 @@ export function toCsv(rows: Record<string, unknown>[], columns: string[]): strin
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   return [columns.join(','), ...rows.map((r) => columns.map((c) => esc(r[c])).join(','))].join('\n');
+}
+
+/** Password hashing: scrypt with a random salt. Format: scrypt$<salt>$<hash> (base64url). */
+const scrypt = (pw: string, salt: Buffer) => new Promise<Buffer>((res, rej) => scryptCb(pw, salt, 64, { N: 16384, r: 8, p: 1 }, (e, k) => (e ? rej(e) : res(k))));
+export async function hashPassword(pw: string): Promise<string> {
+  const salt = randomBytes(16);
+  return `scrypt$${salt.toString('base64url')}$${(await scrypt(pw, salt)).toString('base64url')}`;
+}
+export async function verifyPassword(pw: string, stored: string | null | undefined): Promise<boolean> {
+  const [kind, salt, hash] = (stored ?? '').split('$');
+  if (kind !== 'scrypt' || !salt || !hash) return false;
+  const got = await scrypt(pw, Buffer.from(salt, 'base64url'));
+  const want = Buffer.from(hash, 'base64url');
+  return got.length === want.length && timingSafeEqual(got, want);
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
@@ -18,7 +19,14 @@ Future<String?> pickAndUploadPhoto(BuildContext context, ApiClient api, {require
     ),
   );
   if (source == null) return null;
-  final file = await ImagePicker().pickImage(source: source, maxWidth: maxWidth, imageQuality: 80);
+  XFile? file;
+  try {
+    file = await ImagePicker().pickImage(source: source, maxWidth: maxWidth, maxHeight: maxWidth, imageQuality: 80);
+  } on PlatformException {
+    throw ApiException(0, 'PHOTO_PERMISSION', source == ImageSource.camera
+        ? 'Camera is switched off for Mere Points. Allow Camera in phone Settings, or choose from gallery.'
+        : 'Could not open the gallery. Allow Photos access in phone Settings.');
+  }
   if (file == null) return null;
   final bytes = await file.readAsBytes();
   final name = file.name.toLowerCase();
@@ -27,12 +35,18 @@ Future<String?> pickAndUploadPhoto(BuildContext context, ApiClient api, {require
 
   final slot = await api.post('uploads', {'purpose': purpose, 'contentType': type, 'size': bytes.length}) as Map<String, dynamic>;
   final headers = (slot['headers'] as Map).map((k, v) => MapEntry('$k', '$v'));
+  // Development API hands out a link with its own idea of its address (localhost). The phone must use the address it already reaches.
+  var uploadUrl = '${slot['uploadUrl']}';
+  final local = uploadUrl.indexOf('/uploads/local/');
+  if (local >= 0) uploadUrl = '$kApiUrl${uploadUrl.substring(local)}';
   http.Response r;
   try {
-    r = await http.put(Uri.parse('${slot['uploadUrl']}'), headers: headers, body: bytes).timeout(const Duration(seconds: 60));
+    r = await http.put(Uri.parse(uploadUrl), headers: headers, body: bytes).timeout(const Duration(seconds: 60));
   } catch (_) {
     throw ApiException(0, 'NETWORK', 'Photo upload failed. Check internet and try again.');
   }
-  if (r.statusCode >= 300) throw ApiException(r.statusCode, 'UPLOAD_FAILED', 'Photo upload failed. Please try again.');
-  return '${slot['url']}';
+  if (r.statusCode >= 300) throw ApiException(r.statusCode, 'UPLOAD_FAILED', 'Photo upload failed (${r.statusCode}). Please try again.');
+  var url = '${slot['url']}';
+  if (local >= 0 && url.contains('/files/')) url = '$kApiUrl${url.substring(url.indexOf('/files/'))}';
+  return url;
 }

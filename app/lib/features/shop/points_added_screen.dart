@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api.dart';
 import '../../core/format.dart';
 import '../../core/theme.dart';
+import '../../widgets/celebration.dart';
 import '../../widgets/common.dart';
 import 'find_customer_screen.dart';
 
@@ -54,15 +55,16 @@ class _PointsAddedScreenState extends State<PointsAddedScreen> {
       canPop: true,
       child: Scaffold(
         backgroundColor: Colors.white,
-        body: SafeArea(
+        body: Stack(children: [
+         SafeArea(
           child: ListView(padding: const EdgeInsets.all(24), children: [
-            const SizedBox(height: 32),
-            Center(child: _reversed ? const Icon(Icons.undo_rounded, size: 90, color: VP.red) : const SuccessBadge()),
-            const SizedBox(height: 16),
-            Center(
-              child: Text(_reversed ? 'Reversed' : '+${pts(asNum(r['points']))}',
-                  style: TextStyle(fontSize: 54, fontWeight: FontWeight.w800, color: _reversed ? VP.red : VP.green)),
-            ),
+            const SizedBox(height: 20),
+            if (_reversed) ...[
+              const Center(child: Icon(Icons.undo_rounded, size: 90, color: VP.red)),
+              const SizedBox(height: 16),
+              const Center(child: Text('Reversed', style: TextStyle(fontSize: 54, fontWeight: FontWeight.w800, color: VP.red))),
+            ] else
+              Center(child: CelebrationHeader(points: asNum(r['points']).toInt(), ribbon: 'Points added!')),
             Center(child: Text('points ${_reversed ? 'taken back from' : 'added to'} ${widget.customer['name'] ?? 'customer'}', style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w600))),
             if (!_reversed)
               const Center(
@@ -101,7 +103,9 @@ class _PointsAddedScreenState extends State<PointsAddedScreen> {
               ]),
             ),
           ]),
-        ),
+         ),
+         if (!_reversed) const IgnorePointer(child: ConfettiBurst()),
+        ]),
         bottomNavigationBar: BottomAction(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             FilledButton(

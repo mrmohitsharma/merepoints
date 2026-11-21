@@ -64,8 +64,15 @@ ThemeData buildTheme() {
       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: VP.blue, width: 2)),
       labelStyle: const TextStyle(color: Color(0xFF3C4856), fontWeight: FontWeight.w600),
     ),
+    // Explicit colours: without them chip labels rendered blank (no colour in the label style).
     chipTheme: base.chipTheme.copyWith(
-      labelStyle: const TextStyle(fontSize: 15),
+      labelStyle: const TextStyle(fontSize: 15, color: VP.ink, fontWeight: FontWeight.w500),
+      secondaryLabelStyle: const TextStyle(fontSize: 15, color: VP.blue, fontWeight: FontWeight.w700),
+      backgroundColor: Colors.white,
+      selectedColor: VP.blueSoft,
+      checkmarkColor: VP.blue,
+      side: const BorderSide(color: Color(0xFFCBD3DC)),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     ),
     snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),

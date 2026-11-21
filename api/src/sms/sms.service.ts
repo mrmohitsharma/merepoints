@@ -5,6 +5,7 @@ import { E } from '../common/errors';
 /** SMS templates. Keep each under 160 characters after filling in values (DLT-registered in production). */
 export const SMS = {
   otp: (code: string) => `${code} is your Mere Points code. Valid 5 min. Do not share it. -Mere Points`,
+  passwordReset: (code: string) => `${code} is your Mere Points password reset code. Valid 5 min. Do not share it. -Mere Points`,
   earned: (shop: string, pts: number, bal: number) =>
     `${shop}: +${pts} points added. Balance with them: ${bal} pts. Not you? Reply HELP. -Mere Points`,
   redeemOtp: (shop: string, pts: number, rupees: string, code: string) =>

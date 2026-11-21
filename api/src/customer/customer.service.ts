@@ -13,30 +13,44 @@ const LANGS = ['en', 'hi', 'ta', 'bn', 'kn', 'ml', 'gu', 'pa'] as const;
 export class CustomerService {
   constructor(private db: Db, private milestones: MilestoneService, private redeem: RedeemService, private products: ProductsService) {}
 
-  async register(userId: number, p: { name: string; profession: string; city?: string; upiId?: string; language?: string; photoUrl?: string }) {
+  async register(userId: number, p: {
+    name: string; profession?: string; professions?: string[]; city?: string; area?: string; state?: string; pincode?: string;
+    lat?: number; lng?: number; upiId?: string; language?: string; photoUrl?: string;
+  }) {
+    // Up to 3 work types; the first is the main one (reports and filters use it).
+    const list = [...new Set(p.professions?.length ? p.professions : p.profession ? [p.profession] : [])];
+    if (!list.length) throw E.bad('WORK_TYPE_NEEDED', 'Pick what work you do');
+    if (list.length > 3) throw E.bad('TOO_MANY_WORK_TYPES', 'Pick up to 3 work types');
     if (p.language && !LANGS.includes(p.language as any)) throw E.bad('BAD_LANGUAGE', 'Language not supported');
     if (p.upiId && !/^[\w.\-]{2,256}@[a-zA-Z]{2,64}$/.test(p.upiId)) throw E.bad('BAD_UPI', 'Enter a valid UPI ID, like name@bank');
     return this.db.tx(async (c) => {
+      const known = (await c.query('SELECT count(*)::int AS n FROM professions WHERE code = ANY($1) AND active', [list])).rows[0].n;
+      if (known !== list.length) throw E.bad('BAD_WORK_TYPE', 'Pick work types from the list');
       await c.query('UPDATE users SET name = $2 WHERE id = $1', [userId, p.name]);
       // upi_verified_name: filled by a VPA-validation call (payment provider) in production.
       await c.query(
-        `INSERT INTO customers (user_id, profession, city, upi_id, language, photo_url) VALUES ($1,$2,$3,$4,COALESCE($5,'en'),$6)
-         ON CONFLICT (user_id) DO UPDATE SET profession = EXCLUDED.profession, city = COALESCE(EXCLUDED.city, customers.city),
+        `INSERT INTO customers (user_id, profession, professions, city, area, state, pincode, lat, lng, upi_id, language, photo_url)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,COALESCE($11,'en'),$12)
+         ON CONFLICT (user_id) DO UPDATE SET profession = EXCLUDED.profession, professions = EXCLUDED.professions,
+           city = COALESCE(EXCLUDED.city, customers.city), area = COALESCE(EXCLUDED.area, customers.area), state = COALESCE(EXCLUDED.state, customers.state),
+           pincode = COALESCE(EXCLUDED.pincode, customers.pincode), lat = COALESCE(EXCLUDED.lat, customers.lat), lng = COALESCE(EXCLUDED.lng, customers.lng),
            upi_id = COALESCE(EXCLUDED.upi_id, customers.upi_id), language = EXCLUDED.language, photo_url = COALESCE(EXCLUDED.photo_url, customers.photo_url)`,
-        [userId, p.profession, p.city ?? null, p.upiId ?? null, p.language ?? null, p.photoUrl ?? null],
+        [userId, list[0], list, p.city ?? null, p.area ?? null, p.state ?? null, p.pincode ?? null, p.lat ?? null, p.lng ?? null, p.upiId ?? null, p.language ?? null, p.photoUrl ?? null],
       );
       return { ok: true };
     });
   }
 
-  async updateSettings(userId: number, p: { upiId?: string; language?: string; smsOnEarn?: boolean; profession?: string; city?: string }) {
+  async updateSettings(userId: number, p: { upiId?: string; language?: string; smsOnEarn?: boolean; profession?: string; professions?: string[]; city?: string; area?: string }) {
+    const list = p.professions?.length ? [...new Set(p.professions)] : p.profession ? [p.profession] : null;
+    if (list && list.length > 3) throw E.bad('TOO_MANY_WORK_TYPES', 'Pick up to 3 work types');
     if (p.upiId && !/^[\w.\-]{2,256}@[a-zA-Z]{2,64}$/.test(p.upiId)) throw E.bad('BAD_UPI', 'Enter a valid UPI ID, like name@bank');
     if (p.language && !LANGS.includes(p.language as any)) throw E.bad('BAD_LANGUAGE', 'Language not supported');
     const r = await this.db.pool.query(
       `UPDATE customers SET upi_id = COALESCE($2, upi_id), upi_verified_name = CASE WHEN $2 IS NULL THEN upi_verified_name ELSE NULL END,
               language = COALESCE($3, language), sms_on_earn = COALESCE($4, sms_on_earn),
-              profession = COALESCE($5, profession), city = COALESCE($6, city)
-        WHERE user_id = $1`, [userId, p.upiId ?? null, p.language ?? null, p.smsOnEarn ?? null, p.profession ?? null, p.city ?? null],
+              profession = COALESCE($5, profession), professions = COALESCE($7::text[], professions), city = COALESCE($6, city), area = COALESCE($8, area)
+        WHERE user_id = $1`, [userId, p.upiId ?? null, p.language ?? null, p.smsOnEarn ?? null, list?.[0] ?? null, p.city ?? null, list, p.area ?? null],
     );
     if (!r.rowCount) throw E.notFound('Customer profile');
     return { ok: true };
@@ -233,10 +247,10 @@ export class CustomerService {
       if (owner) throw E.bad('SHOP_OWNER', 'You own a shop on Mere Points. Write to support to close the shop first.');
       const open = (await c.query(`SELECT count(*)::int AS n FROM redemptions WHERE customer_id = $1 AND status IN ('held','paid','disputed')`, [userId])).rows[0].n;
       if (open) throw E.bad('OPEN_PAYOUT', 'You have a payout in progress. Finish it (Received / Not received) before deleting your account.');
-      const u = (await c.query(`UPDATE users SET mobile = 'x' || id, name = NULL, email = NULL, google_sub = NULL, deleted_at = now()
+      const u = (await c.query(`UPDATE users SET mobile = 'x' || id, name = NULL, email = NULL, google_sub = NULL, password_hash = NULL, deleted_at = now()
                                  WHERE id = $1 AND deleted_at IS NULL RETURNING mobile`, [userId])).rows[0];
       if (!u) throw E.notFound('Account');
-      await c.query(`UPDATE customers SET city = NULL, upi_id = NULL, upi_verified_name = NULL, photo_url = NULL, profession = 'other', sms_on_earn = FALSE WHERE user_id = $1`, [userId]);
+      await c.query(`UPDATE customers SET city = NULL, upi_id = NULL, upi_verified_name = NULL, photo_url = NULL, profession = 'other', professions = '{other}', area = NULL, state = NULL, pincode = NULL, lat = NULL, lng = NULL, sms_on_earn = FALSE WHERE user_id = $1`, [userId]);
       await c.query(`DELETE FROM shop_members WHERE user_id = $1`, [userId]);
       await c.query(`INSERT INTO audit_log (actor_id, action, entity, entity_id) VALUES ($1, 'account.delete', 'user', $2)`, [userId, String(userId)]);
       return { deleted: true };

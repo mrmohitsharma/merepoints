@@ -191,12 +191,18 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
               child: _uploading
                   ? const Center(child: CircularProgressIndicator())
                   : _photo == null
-                      ? const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          Icon(Icons.add_a_photo_outlined, size: 36, color: VP.blue),
-                          SizedBox(height: 6),
-                          Text('Add photo', style: TextStyle(fontWeight: FontWeight.w700, color: VP.blue)),
-                          Text('Clear photo on a plain background', style: TextStyle(fontSize: 12, color: VP.muted)),
-                        ])
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            child: Column(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(Icons.add_a_photo_outlined, size: 36, color: VP.blue),
+                              SizedBox(height: 6),
+                              Text('Add photo', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: VP.blue)),
+                              SizedBox(height: 2),
+                              Text('Camera or gallery · clear photo, plain background', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: VP.muted)),
+                            ]),
+                          ),
+                        )
                       : Stack(fit: StackFit.expand, children: [
                           ProductPhoto(url: _photo, kind: widget.kind, radius: 16),
                           const Positioned(right: 8, bottom: 8, child: CircleAvatar(backgroundColor: Colors.white, child: Icon(Icons.edit, color: VP.blue))),
@@ -213,11 +219,13 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           Expanded(child: TextField(controller: _mrp, keyboardType: const TextInputType.numberWithOptions(decimal: true), inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))], decoration: const InputDecoration(labelText: 'MRP', prefixText: '₹ '))),
         ]),
         const SizedBox(height: 10),
-        TextField(controller: _category, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Category')),
+        TextField(controller: _category, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Category', hintText: 'Pick one below or type your own'), onChanged: (_) => setState(() {})),
         const SizedBox(height: 6),
-        Wrap(spacing: 6, runSpacing: 6, children: [
-          for (final c in _cats) ActionChip(label: Text(c), onPressed: () => setState(() => _category.text = c)),
-        ]),
+        ChoiceChips<String>(
+          options: {for (final c in _cats) c: c},
+          selected: {_category.text.trim()},
+          onTap: (c) => setState(() => _category.text = _category.text.trim() == c ? '' : c),
+        ),
         const SizedBox(height: 16),
         if (_redeem) ...[
           Row(children: [

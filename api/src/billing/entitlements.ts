@@ -78,7 +78,7 @@ export async function requireFeature(q: Q, shopId: number, feature: string) {
 export async function usageNow(q: Q, shopId: number): Promise<Record<LimitKind, number>> {
   const r = (await q.query(
     `SELECT
-       (SELECT count(*)::int FROM notifications n WHERE n.shop_id = $1 AND n.status <> 'cancelled' AND n.title NOT LIKE 'Payment reminder%'
+       (SELECT count(*)::int FROM notifications n WHERE n.shop_id = $1 AND n.kind = 'campaign' AND n.status <> 'cancelled' AND n.title NOT LIKE 'Payment reminder%'
            AND date_trunc('month', n.created_at AT TIME ZONE $2) = date_trunc('month', now() AT TIME ZONE $2)) AS notifications,
        (SELECT count(*)::int FROM products p WHERE p.shop_id = $1 AND p.active) AS products,
        (SELECT count(*)::int FROM offers o WHERE o.shop_id = $1 AND upper(o.period) > now() AND NOT o.cancelled) AS offers,

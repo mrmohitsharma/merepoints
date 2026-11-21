@@ -13,13 +13,14 @@ import { ShopService } from '../shop/shop.service';
 import { bumpStats, IST_DAY_START, lockWallet, writeLedger } from './ledger';
 import { MilestoneService } from '../customer/milestone.service';
 import { requireFeature } from '../billing/entitlements';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export interface EarnBillInput { customerId: number; amountRupees: number; invoiceNo?: string; photoUrl?: string; photoUrls?: string[]; items?: { productId: number; qty: number }[] }
 export interface EarnManualInput { customerId: number; points: number; reason: string; remarks?: string; invoiceNo?: string }
 
 @Injectable()
 export class PointsService {
-  constructor(private db: Db, private sms: SmsService, private shops: ShopService, private milestones: MilestoneService, private products: ProductsService) {}
+  constructor(private db: Db, private sms: SmsService, private shops: ShopService, private milestones: MilestoneService, private products: ProductsService, private notifications: NotificationsService) {}
 
   // ------------------------------------------------------------------ find customer
   async resolveCustomer(shopId: number, by: { qr?: string; mobile?: string }) {
@@ -74,7 +75,7 @@ export class PointsService {
     if (amountPaise <= 0) throw E.bad('BAD_AMOUNT', 'Enter the bill amount');
     const invoiceNo = input.invoiceNo?.trim() || null;
 
-    return this.db.tx((c) => idempotent(c, staffId, idemKey, { k: 'earnBill', shop: shop.id, ...input }, async () => {
+    const result = await this.db.tx((c) => idempotent(c, staffId, idemKey, { k: 'earnBill', shop: shop.id, ...input }, async () => {
       if (input.photoUrls?.length || input.photoUrl) await requireFeature(c, shop.id, 'bill_photos');
       const cfg = await this.shops.getConfig(shop.id, c);
       if (!cfg.enabled) throw E.bad('LOYALTY_OFF', 'Loyalty points are switched off for your shop');
@@ -129,12 +130,14 @@ export class PointsService {
         milestoneCrossed: out.milestoneCrossed, createdAt: out.entry.created_at,
       };
     }));
+    await this.tellCustomer(shop.id, staffId, input.customerId, result);
+    return result;
   }
 
   // ------------------------------------------------------------------ earn: manual
   async earnManual(shop: ShopCtx, staffId: number, input: EarnManualInput, idemKey?: string) {
     if (!Number.isInteger(input.points) || input.points <= 0) throw E.bad('BAD_POINTS', 'Enter points to add');
-    return this.db.tx((c) => idempotent(c, staffId, idemKey, { k: 'earnManual', shop: shop.id, ...input }, async () => {
+    const result = await this.db.tx((c) => idempotent(c, staffId, idemKey, { k: 'earnManual', shop: shop.id, ...input }, async () => {
       // Per-staff daily limit (owner unlimited). Advisory lock stops two phones racing the limit.
       if (shop.role !== 'owner') {
         await c.query('SELECT pg_advisory_xact_lock($1, $2)', [shop.id, staffId]);
@@ -159,6 +162,8 @@ export class PointsService {
       await this.notifyEarn(c, shop.id, cust, input.points, out.balanceAfter, created);
       return { entryId: out.entry.public_id, points: input.points, balance: out.balanceAfter, milestoneCrossed: out.milestoneCrossed };
     }));
+    await this.tellCustomer(shop.id, staffId, input.customerId, result);
+    return result;
   }
 
   /** Shared credit path: lot + ledger + wallet + customer lifetime + daily stats. */
@@ -196,6 +201,17 @@ export class PointsService {
       { lifetime_points: before.bp, lifetime_value_paise: before.bv }, { lifetime_points: before.ap, lifetime_value_paise: before.av }, c,
     );
     return { entry, balanceAfter, milestoneCrossed };
+  }
+
+  /** After the points are saved: inbox + push "You earned N points at <shop>". Skipped when this is a retry of an earlier request. */
+  private async tellCustomer(shopId: number, staffId: number, customerId: number, r: { points: number; balance: number; replayed?: boolean }) {
+    if (r.replayed) return;
+    const row = (await this.db.pool.query(
+      `SELECT s.name AS shop, COALESCE(NULLIF(split_part(u.name, ' ', 1), ''), 'ji') AS first FROM shops s, users u WHERE s.id = $1 AND u.id = $2`, [shopId, customerId])).rows[0];
+    if (!row) return;
+    const shop = String(row.shop).length > 32 ? String(row.shop).slice(0, 31) + '…' : row.shop;
+    await this.notifications.notifyCustomer(shopId, staffId, customerId, `+${r.points} points at ${shop}`,
+      `Namaste ${row.first}, you earned ${r.points} points at ${row.shop}. Your balance there is now ${r.balance} points.`);
   }
 
   private async notifyEarn(c: PoolClient, shopId: number, cust: { mobile: string; sms_on_earn: boolean }, points: number, balance: number, firstVisit: boolean) {

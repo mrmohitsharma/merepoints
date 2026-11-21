@@ -40,13 +40,13 @@ describe('shop notifications', () => {
     expect(made).toMatchObject({ scheduled: false, recipients: 2 });
 
     const inbox = (await http().get('/v1/me/notifications').set(auth(c1.token)).expect(200)).body;
-    expect(inbox.unread).toBe(1);
-    expect(inbox.items[0]).toMatchObject({ title: 'Diwali offer', body: 'Namaste Ramesh, you have 100 pts.', shop_id: A.shopId, opened: false });
+    expect(inbox.unread).toBe(2); // the earn message + the campaign
+    expect(inbox.items.find((i: any) => i.title === 'Diwali offer')).toMatchObject({ title: 'Diwali offer', body: 'Namaste Ramesh, you have 100 pts.', shop_id: A.shopId, opened: false });
 
     await http().post(`/v1/me/notifications/${made.id}/open`).set(auth(c1.token)).expect(201);
     await http().post(`/v1/me/notifications/${made.id}/open`).set(auth(c1.token)).expect(201); // second open does not double count
     await http().post(`/v1/me/notifications/${made.id}/click`).set(auth(c1.token)).expect(201);
-    expect((await http().get('/v1/me/notifications/unread-count').set(auth(c1.token)).expect(200)).body.unread).toBe(0);
+    expect((await http().get('/v1/me/notifications/unread-count').set(auth(c1.token)).expect(200)).body.unread).toBe(1); // only the earn message left
 
     await bill(A.owner.token, A.shopId, c1.userId, 1500, 'I-3').expect(201); // bought after the notification
     const d = (await http().get(`/v1/shop/notifications/${made.id}`).set(auth(A.owner.token, A.shopId)).expect(200)).body;
@@ -88,12 +88,12 @@ describe('shop notifications', () => {
     const a = (await send(A, { scheduledAt: at }).expect(201)).body;
     const b = (await send(A, { title: 'Second', scheduledAt: at }).expect(201)).body;
     expect(a.scheduled).toBe(true);
-    expect((await http().get('/v1/me/notifications').set(auth(c.token)).expect(200)).body.items).toHaveLength(0);
+    expect((await http().get('/v1/me/notifications').set(auth(c.token)).expect(200)).body.items.filter((i: any) => !i.title.startsWith('+'))).toHaveLength(0);
     await http().post(`/v1/shop/notifications/${b.id}/cancel`).set(auth(A.owner.token, A.shopId)).expect(201);
     await pg.query(`UPDATE notifications SET scheduled_at = now() - interval '1 minute' WHERE id = ANY($1)`, [[a.id, b.id]]);
     await app().sendDue();
     const items = (await http().get('/v1/me/notifications').set(auth(c.token)).expect(200)).body.items;
-    expect(items.map((i: any) => i.title)).toEqual(['Diwali offer']); // cancelled one never sent
+    expect(items.map((i: any) => i.title).filter((t: string) => !t.startsWith('+'))).toEqual(['Diwali offer']); // cancelled one never sent
     await http().post(`/v1/shop/notifications/${a.id}/cancel`).set(auth(A.owner.token, A.shopId)).expect(400); // already sent
   });
 

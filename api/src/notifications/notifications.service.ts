@@ -73,6 +73,24 @@ export class NotificationsService {
     return { count: r!.total as number, pushReachable: r!.push as number };
   }
 
+  /**
+   * One-person system message, e.g. "You earned 31 points at Sharma Hardware". Goes to the customer's inbox and, when push is set up, their phone.
+   * Not a campaign: it never appears in the shop's list and never uses its limits. Best effort, never throws.
+   */
+  async notifyCustomer(shopId: number, createdBy: number, customerId: number, title: string, body: string) {
+    try {
+      const n = (await this.db.pool.query(
+        `INSERT INTO notifications (shop_id, created_by, kind, title, body, action_type, action_label, filters, status, sent_at, recipient_count)
+         VALUES ($1,$2,'system',$3,$4,'shop','View shop',$5,'sent',now(),1) RETURNING *`,
+        [shopId, createdBy, title.slice(0, 60), body.slice(0, 240), JSON.stringify({ customerId })],
+      )).rows[0];
+      await this.db.pool.query(`INSERT INTO notification_recipients (notification_id, customer_id, title, body) VALUES ($1,$2,$3,$4)`, [n.id, customerId, n.title, n.body]);
+      await this.pushOut(n, [customerId]);
+    } catch (e: any) {
+      this.log.error(`system notification for ${customerId} failed: ${e?.message ?? e}`);
+    }
+  }
+
   // ------------------------------------------------------------ create + send
   async create(shopId: number, userId: number, input: z.infer<typeof NotificationInput>, opts: { skipLimit?: boolean } = {}) {
     const when = input.scheduledAt ? new Date(input.scheduledAt) : null;
@@ -80,7 +98,7 @@ export class NotificationsService {
     if (later && when!.getTime() > Date.now() + 30 * 86_400_000) throw E.bad('BAD_DATES', 'You can schedule up to 30 days ahead');
 
     const today = await this.db.one(
-      `SELECT count(*)::int AS n FROM notifications WHERE shop_id = $1 AND status <> 'cancelled' AND title NOT LIKE 'Payment reminder%'
+      `SELECT count(*)::int AS n FROM notifications WHERE shop_id = $1 AND kind = 'campaign' AND status <> 'cancelled' AND title NOT LIKE 'Payment reminder%'
           AND (created_at AT TIME ZONE $2)::date = (now() AT TIME ZONE $2)::date`, [shopId, config.timezone]);
     if (!opts.skipLimit && today!.n >= config.notificationsPerDay) throw E.forbidden('DAILY_LIMIT', `You can send ${config.notificationsPerDay} notifications a day. Try again tomorrow.`);
 
@@ -186,14 +204,14 @@ export class NotificationsService {
     return this.db.many(
       `SELECT n.id, n.title, n.body, n.image_url, n.action_type, n.action_label, n.status, n.filters, n.scheduled_at, n.sent_at, n.created_at, ${NotificationsService.STATS}
          FROM notifications n LEFT JOIN notification_recipients r ON r.notification_id = n.id
-        WHERE n.shop_id = $1 GROUP BY n.id ORDER BY n.created_at DESC LIMIT 50`, [shopId]);
+        WHERE n.shop_id = $1 AND n.kind = 'campaign' GROUP BY n.id ORDER BY n.created_at DESC LIMIT 50`, [shopId]);
   }
 
   async detail(shopId: number, id: number) {
     const n = await this.db.one(
       `SELECT n.id, n.title, n.body, n.image_url, n.action_type, n.action_label, n.status, n.filters, n.scheduled_at, n.sent_at, n.created_at, ${NotificationsService.STATS}
          FROM notifications n LEFT JOIN notification_recipients r ON r.notification_id = n.id
-        WHERE n.id = $1 AND n.shop_id = $2 GROUP BY n.id`, [id, shopId]);
+        WHERE n.id = $1 AND n.shop_id = $2 AND n.kind = 'campaign' GROUP BY n.id`, [id, shopId]);
     if (!n) throw E.notFound('Notification');
     const people = await this.db.many(
       `SELECT r.customer_id, u.name, u.mobile, r.pushed_at, r.delivered_at, r.opened_at, r.clicked_at,

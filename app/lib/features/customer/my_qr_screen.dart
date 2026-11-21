@@ -6,9 +6,11 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../core/api.dart';
 import '../../core/format.dart';
+import '../../core/push.dart';
 import '../../core/i18n.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
+import '../../widgets/celebration.dart';
 import '../../widgets/common.dart';
 
 /// Rotating QR (new code every minute, so screenshots stop working). Shops scan it to add or redeem.
@@ -18,7 +20,7 @@ class MyQrScreen extends StatefulWidget {
   State<MyQrScreen> createState() => _MyQrScreenState();
 }
 
-class _MyQrScreenState extends State<MyQrScreen> {
+class _MyQrScreenState extends State<MyQrScreen> with WidgetsBindingObserver {
   String? _qr;
   DateTime? _expires;
   Object? _error;
@@ -28,7 +30,9 @@ class _MyQrScreenState extends State<MyQrScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fetch();
+    _startWatching();
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (_expires == null) return;
       final left = _expires!.difference(DateTime.now()).inSeconds;
@@ -39,8 +43,74 @@ class _MyQrScreenState extends State<MyQrScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tick?.cancel();
+    _watch?.cancel();
     super.dispose();
+  }
+
+  // ---- points arriving while this screen is open --------------------------------------------
+  Timer? _watch;
+  int? _lastId; // newest ledger entry we had seen when the screen opened
+  bool _celebrating = false;
+  bool _foreground = true;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) => _foreground = state == AppLifecycleState.resumed;
+
+  Future<void> _startWatching() async {
+    try {
+      final r = await context.read<ApiClient>().get('me/earned') as Map<String, dynamic>;
+      _lastId = asNum(r['latestId']).toInt();
+    } catch (_) {
+      _lastId = null; // try again on the next tick
+    }
+    if (!mounted) return;
+    _watch = Timer.periodic(const Duration(milliseconds: 2500), (_) => _checkEarned());
+  }
+
+  bool _checking = false;
+  Future<void> _checkEarned() async {
+    if (_checking || _celebrating || !_foreground || !mounted) return;
+    _checking = true;
+    try {
+      final api = context.read<ApiClient>();
+      if (_lastId == null) {
+        final r = await api.get('me/earned') as Map<String, dynamic>;
+        _lastId = asNum(r['latestId']).toInt();
+        return;
+      }
+      final r = await api.get('me/earned?after=$_lastId') as Map<String, dynamic>;
+      _lastId = asNum(r['latestId']).toInt();
+      final items = (r['items'] as List).cast<Map<String, dynamic>>();
+      if (items.isEmpty || !mounted) return;
+      await _celebrate(items);
+    } catch (_) {
+      // Offline for a moment: the next tick tries again.
+    } finally {
+      _checking = false;
+    }
+  }
+
+  /// Animated "points received" screen (sound + vibration come with it), then straight to the home screen.
+  Future<void> _celebrate(List<Map<String, dynamic>> items) async {
+    _celebrating = true;
+    final total = items.fold<int>(0, (a, i) => a + asNum(i['points']).toInt());
+    final shops = items.map((i) => '${i['shopName']}').toSet().toList();
+    final line = shops.length == 1 ? 'from ${shops.first}' : 'from ${shops.length} shops';
+    final nav = Navigator.of(context);
+    final inbox = context.read<Inbox>();
+    var done = false;
+    void goHome() {
+      if (done) return;
+      done = true;
+      nav.popUntil((r) => r.isFirst); // closes the celebration and this QR screen
+      inbox.refreshUnread();
+    }
+
+    Timer(const Duration(seconds: 5), goHome); // hands-free: the customer is standing at the counter
+    await showCelebration(context, points: total, ribbon: 'Points received!', line: line, button: 'Done');
+    goHome();
   }
 
   bool _fetching = false;

@@ -136,6 +136,27 @@ export class CustomerService {
    * Keyset pagination on (created_at, id) — stable and index-only-range on ledger_customer_time /
    * ledger_cust_shop_time, no OFFSET scans. redeem_confirm rows are folded into their hold row.
    */
+  /**
+   * Cheap poll for the open QR screen: points the customer has just received.
+   * Without `after` it only returns the latest entry id (the starting line); with it, anything newer.
+   */
+  async earned(userId: number, after?: number) {
+    if (after === undefined) {
+      const r = await this.db.one(`SELECT COALESCE(MAX(id), 0)::bigint AS latest FROM ledger_entries WHERE customer_id = $1`, [userId]);
+      return { latestId: Number(r?.latest ?? 0), items: [] };
+    }
+    const rows = await this.db.many(
+      `SELECT le.id, le.points, le.balance_after, le.type, s.id AS shop_id, s.name AS shop_name
+         FROM ledger_entries le JOIN shops s ON s.id = le.shop_id
+        WHERE le.customer_id = $1 AND le.id > $2 AND le.type IN ('earn_bill','earn_manual') AND le.points > 0
+        ORDER BY le.id LIMIT 20`, [userId, after]);
+    const latest = (await this.db.one(`SELECT COALESCE(MAX(id), 0)::bigint AS latest FROM ledger_entries WHERE customer_id = $1`, [userId]))?.latest ?? after;
+    return {
+      latestId: Number(latest),
+      items: rows.map((r) => ({ id: Number(r.id), points: r.points, balance: Number(r.balance_after), type: r.type, shopId: r.shop_id, shopName: r.shop_name })),
+    };
+  }
+
   async history(userId: number, f: { shopId?: number; kind?: 'earned' | 'redeemed'; before?: string; limit?: number }) {
     const limit = Math.min(f.limit ?? 30, 100);
     const params: unknown[] = [userId];

@@ -46,8 +46,17 @@ class _StaffScreenState extends State<StaffScreen> {
                     ]),
                     if (m['role'] == 'staff') ...[
                       const SizedBox(height: 8),
+                      _PermToggle(label: 'Can add points (bills)', value: m['can_add_points'] != false, onChanged: (v) => _patch(context, m, {'canAddPoints': v}, reload)),
                       _PermToggle(label: 'Can redeem', value: m['can_redeem'] == true, onChanged: (v) => _patch(context, m, {'canRedeem': v}, reload)),
                       _PermToggle(label: 'Manual points (≤ ${m['manual_daily_limit']}/day)', value: m['can_manual'] == true, onChanged: (v) => _patch(context, m, {'canManual': v}, reload)),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: () => _editLimit(context, m, reload),
+                          icon: const Icon(Icons.edit_outlined, size: 18),
+                          label: Text('Manual points limit: ${m['manual_daily_limit']} per day'),
+                        ),
+                      ),
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
@@ -77,6 +86,22 @@ class _StaffScreenState extends State<StaffScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _editLimit(BuildContext context, Map<String, dynamic> m, Future<void> Function() reload) async {
+    final ctrl = TextEditingController(text: '${m['manual_daily_limit']}');
+    final v = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Manual points per day'),
+        content: TextField(controller: ctrl, keyboardType: TextInputType.number, autofocus: true, decoration: const InputDecoration(hintText: 'e.g. 500')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, int.tryParse(ctrl.text.trim())), child: const Text('Save')),
+        ],
+      ),
+    );
+    if (v != null && v >= 0 && context.mounted) await _patch(context, m, {'manualDailyLimit': v}, reload);
   }
 
   Future<void> _patch(BuildContext context, Map<String, dynamic> m, Map<String, dynamic> body, Future<void> Function() reload) async {

@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api.dart';
 import '../../core/format.dart';
+import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import 'add_points_screen.dart';
@@ -124,6 +125,36 @@ class CustomerDetailScreen extends StatelessWidget {
   const CustomerDetailScreen({super.key, required this.customerId});
   final int customerId;
 
+  Future<void> _toggleBlock(BuildContext context, bool blocked, Future<void> Function() reload) async {
+    String? reason;
+    if (!blocked) {
+      final ctrl = TextEditingController();
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Block this customer?'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Text('They will not be able to earn or redeem points at your shop until you unblock them.'),
+            const SizedBox(height: 10),
+            TextField(controller: ctrl, decoration: const InputDecoration(hintText: 'Reason (optional)')),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(style: FilledButton.styleFrom(backgroundColor: VP.red), onPressed: () => Navigator.pop(ctx, true), child: const Text('Block')),
+          ],
+        ),
+      );
+      if (ok != true) return;
+      reason = ctrl.text.trim().isEmpty ? null : ctrl.text.trim();
+    }
+    try {
+      await context.read<ApiClient>().spost('customers/$customerId/block', {'blocked': !blocked, if (reason != null) 'reason': reason});
+      await reload();
+    } catch (e) {
+      if (context.mounted) showError(context, e);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final api = context.read<ApiClient>();
@@ -138,7 +169,19 @@ class CustomerDetailScreen extends StatelessWidget {
             'id': c['id'], 'name': c['name'], 'mobile': c['mobile'], 'profession': c['profession'], 'upiId': c['upi_id'],
             'atThisShop': {'balance': c['balance_points'], 'held': c['held_points'], 'firstVisit': false},
           };
+          final blocked = c['blocked'] == true;
+          final isOwner = context.read<Session>().activeShop?.isOwner == true;
           return ListView(padding: const EdgeInsets.only(bottom: 24), children: [
+            if (blocked)
+              Container(
+                color: VP.redSoft,
+                padding: const EdgeInsets.all(12),
+                child: Row(children: [
+                  const Icon(Icons.block, color: VP.red),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text('Blocked at your shop. No points can be added or redeemed.', style: const TextStyle(color: VP.red, fontWeight: FontWeight.w600))),
+                ]),
+              ),
             Container(
               color: Colors.white,
               padding: const EdgeInsets.all(16),
@@ -175,7 +218,7 @@ class CustomerDetailScreen extends StatelessWidget {
                 Row(children: [
                   Expanded(
                     child: FilledButton(
-                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AddPointsScreen(customer: asResolved))).then((_) => reload()),
+                      onPressed: blocked ? null : () => Navigator.push(context, MaterialPageRoute(builder: (_) => AddPointsScreen(customer: asResolved))).then((_) => reload()),
                       child: const Text('Add points'),
                     ),
                   ),
@@ -183,11 +226,19 @@ class CustomerDetailScreen extends StatelessWidget {
                   Expanded(
                     child: FilledButton(
                       style: FilledButton.styleFrom(backgroundColor: VP.amber, foregroundColor: VP.ink),
-                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => RedeemScreen(customer: asResolved))).then((_) => reload()),
+                      onPressed: blocked ? null : () => Navigator.push(context, MaterialPageRoute(builder: (_) => RedeemScreen(customer: asResolved))).then((_) => reload()),
                       child: const Text('Redeem'),
                     ),
                   ),
                 ]),
+                if (isOwner) ...[
+                  const SizedBox(height: 6),
+                  TextButton.icon(
+                    onPressed: () => _toggleBlock(context, blocked, reload),
+                    icon: Icon(blocked ? Icons.lock_open : Icons.block, color: blocked ? VP.green : VP.red, size: 20),
+                    label: Text(blocked ? 'Unblock customer' : 'Block customer', style: TextStyle(color: blocked ? VP.green : VP.red, fontWeight: FontWeight.w700)),
+                  ),
+                ],
               ]),
             ),
             const SectionTitle('History at your shop'),

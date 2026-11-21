@@ -29,6 +29,9 @@ export default function Settings() {
   const slabVals = slabs?.map((s, i) => ({ fromRupees: i === 0 ? 0 : Number(s.from || 0), percent: Number(s.pct || 0) })) ?? null;
   const slabErr = slabVals ? slabError(slabVals) : null;
   const [busy, setBusy] = useState<'' | 'p' | 'l'>('');
+  type Version = { version: number; createdAt: string; byName: string | null; current: boolean; changes: string[]; config: { rewardPercent: number; pointValueRupees: number; minRedeemPoints: number; expiryDays: number | null } };
+  const [history, setHistory] = useState<Version[]>([]);
+  useEffect(() => { merchantApi.get('shop/config/history').then(setHistory).catch(() => undefined); }, [shop.loyalty.version]);
   useEffect(() => { merchantApi.get('shops/categories').then(setCats).catch(() => undefined); }, []);
 
   async function saveProfile() {
@@ -155,6 +158,28 @@ export default function Settings() {
           </div>
         </Card>
       </div>
+
+      <Card className="mt-6">
+        <h2 className="mb-1 text-lg font-semibold">Rules history</h2>
+        <p className="mb-3 text-sm text-muted">Every change to your loyalty rules, newest first.</p>
+        <div className="divide-y divide-line">
+          {history.map((v) => (
+            <div key={v.version} className="py-3">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold">Version {v.version}</span>
+                {v.current && <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700">Current</span>}
+                <span className="text-sm text-muted">{new Date(v.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}{v.byName ? ` · by ${v.byName}` : ''}</span>
+              </div>
+              <ul className="mt-1 list-disc pl-5 text-sm">
+                {v.changes.length === 0
+                  ? <li className="list-none -ml-5 text-muted">{v.version === 1 ? `Starting rules: ${v.config.rewardPercent}% reward, 1 point = ₹${v.config.pointValueRupees}, min redeem ${v.config.minRedeemPoints}` : 'No changes'}</li>
+                  : v.changes.map((c) => <li key={c}>{c}</li>)}
+              </ul>
+            </div>
+          ))}
+          {history.length === 0 && <p className="py-3 text-sm text-muted">No history yet.</p>}
+        </div>
+      </Card>
     </>
   );
 }

@@ -76,6 +76,9 @@ export class ShopController {
     return ShopService.presentConfig(await this.shops.getConfig(s.id));
   }
 
+  @ShopRoute({ owner: true, allowPending: true }) @Get('config/history')
+  configHistory(@CurrentShop() s: ShopCtx) { return this.shops.configHistory(s.id); }
+
   @ShopRoute({ owner: true, allowPending: true }) @Put('config')
   updateConfig(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Body() body: unknown) {
     return this.shops.updateConfig(s.id, u.id, parse(LoyaltyConfigInput, body));

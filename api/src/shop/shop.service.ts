@@ -122,6 +122,36 @@ export class ShopService {
     return r;
   }
 
+  /** Every version of the loyalty rules, newest first, with a plain list of what changed vs the version before. */
+  async configHistory(shopId: number) {
+    const rows = (await this.db.pool.query(
+      `SELECT lc.*, u.name AS by_name, (s.current_config_id = lc.id) AS is_current
+         FROM loyalty_configs lc
+         JOIN shops s ON s.id = lc.shop_id
+         LEFT JOIN users u ON u.id = lc.created_by
+        WHERE lc.shop_id = $1 ORDER BY lc.version ASC`, [shopId])).rows;
+    const labels: Record<string, string> = {
+      enabled: 'Points on/off', rewardPercent: 'Reward %', rewardSlabs: 'Reward slabs', pointValueRupees: 'Point value (₹)',
+      minBillRupees: 'Minimum bill (₹)', maxPointsPerBill: 'Max points per bill', minRedeemPoints: 'Minimum redeem',
+      maxRedeemPoints: 'Maximum redeem', expiryDays: 'Expiry (days)', payoutCash: 'Cash payout', payoutUpi: 'UPI payout',
+    };
+    let prev: any = null;
+    const out = rows.map((r) => {
+      const cfg = ShopService.presentConfig(r) as Record<string, any>;
+      const changes: string[] = [];
+      if (prev) {
+        for (const k of Object.keys(labels)) {
+          if (JSON.stringify(cfg[k]) !== JSON.stringify(prev[k])) {
+            changes.push(`${labels[k]}: ${JSON.stringify(prev[k])} → ${JSON.stringify(cfg[k])}`);
+          }
+        }
+      }
+      prev = cfg;
+      return { version: r.version, createdAt: r.created_at, byName: r.by_name ?? null, current: !!r.is_current, changes, config: cfg };
+    });
+    return out.reverse();
+  }
+
   static presentConfig(r: any) {
     return {
       version: r.version,

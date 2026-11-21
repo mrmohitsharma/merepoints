@@ -6,13 +6,14 @@ import { config } from '../config';
 import { AppError, E } from '../common/errors';
 import { safeEqual } from '../common/util';
 import { billingStateSql } from './state';
+import { creditsLeft, FEATURES, loadEntitlements, usageNow } from './entitlements';
 
 const rupees = (p: number) => Number(p) / 100;
 const receiptNo = () => 'MP' + randomBytes(5).toString('hex').toUpperCase();
 
 /**
- * Shop subscriptions and SMS packs, paid online with Razorpay.
- * Without RAZORPAY_KEY_ID/SECRET (and outside production) it runs in test mode:
+ * Shop packages, extra packs and ads, paid online with Cashfree.
+ * Without CASHFREE_APP_ID/SECRET_KEY (and outside production) it runs in test mode:
  * orders are created locally and the signature "test" is accepted, so the whole flow can be tried.
  */
 @Injectable()
@@ -20,7 +21,7 @@ export class BillingService {
   constructor(private db: Db) {}
 
   get testMode() {
-    return !config.razorpay.keyId && process.env.NODE_ENV !== 'production';
+    return !config.cashfree.appId && process.env.NODE_ENV !== 'production';
   }
 
   async setting<T>(q: Q, key: string, fallback: T): Promise<T> {
@@ -59,18 +60,17 @@ export class BillingService {
     const s = await this.db.one(
       `SELECT ${billingStateSql('ss')} AS state, ss.trial_ends_at, ss.current_period_end, ss.cancelled,
               COALESCE(ss.current_period_end, ss.trial_ends_at) + make_interval(days => (SELECT value::text::int FROM platform_settings WHERE key = 'grace_days')) AS grace_ends_at,
-              p.code AS plan_code, p.name AS plan_name, p.price_paise, p.max_staff, p.sms_included,
-              sh.sms_balance,
               (SELECT count(*)::int FROM shop_members m WHERE m.shop_id = sh.id AND m.role = 'staff' AND m.active) AS staff_used
-         FROM shops sh LEFT JOIN shop_subscriptions ss ON ss.shop_id = sh.id LEFT JOIN plans p ON p.id = ss.plan_id
+         FROM shops sh LEFT JOIN shop_subscriptions ss ON ss.shop_id = sh.id
         WHERE sh.id = $1`, [shopId],
     );
     if (!s) throw E.notFound('Shop');
     const end = s.current_period_end ?? s.trial_ends_at;
     const daysLeft = end ? Math.ceil((new Date(end).getTime() - Date.now()) / 86_400_000) : null;
-    const [plans, packs, payments] = await Promise.all([
-      this.db.many('SELECT code, name, price_paise, max_staff, sms_included, features FROM plans WHERE active ORDER BY sort'),
-      this.db.many('SELECT code, sms_count, price_paise FROM sms_packs WHERE active ORDER BY sms_count'),
+    const [ent, usage, credits, plans, addons, payments] = await Promise.all([
+      loadEntitlements(this.db.pool, shopId), usageNow(this.db.pool, shopId), creditsLeft(this.db.pool, shopId),
+      this.db.many(`SELECT code, name, price_paise, yearly_price_paise, max_staff, feature_keys, limit_notifications, limit_products, limit_offers, limit_ads FROM plans WHERE active ORDER BY sort, id`),
+      this.db.many('SELECT code, kind, quantity, price_paise FROM addon_packs WHERE active ORDER BY kind, quantity'),
       this.db.many(
         `SELECT p.public_id AS receipt, p.kind, p.status, p.amount_paise, p.paid_at, p.created_at, p.period_end, p.sms_added, pl.name AS plan_name
            FROM payments p LEFT JOIN plans pl ON pl.id = p.plan_id WHERE p.shop_id = $1 AND p.status = 'paid' ORDER BY p.paid_at DESC LIMIT 24`, [shopId],
@@ -78,73 +78,117 @@ export class BillingService {
     ]);
     return {
       state: s.state,
-      plan: s.plan_code ? { code: s.plan_code, name: s.plan_name, priceRupees: rupees(s.price_paise), maxStaff: s.max_staff, smsIncluded: s.sms_included } : null,
-      trialEndsAt: s.trial_ends_at, periodEnd: s.current_period_end, graceEndsAt: s.grace_ends_at, daysLeft,
-      smsBalance: s.sms_balance, staffUsed: s.staff_used,
-      plans: plans.map((p) => ({ code: p.code, name: p.name, priceRupees: rupees(p.price_paise), maxStaff: p.max_staff, smsIncluded: p.sms_included, features: p.features })),
-      smsPacks: packs.map((p) => ({ code: p.code, sms: p.sms_count, priceRupees: rupees(p.price_paise) })),
-      payments: payments.map((p) => ({ receipt: p.receipt, kind: p.kind, planName: p.plan_name, amountRupees: rupees(p.amount_paise), paidAt: p.paid_at, periodEnd: p.period_end, smsAdded: p.sms_added })),
-      razorpayKeyId: config.razorpay.keyId || null,
+      plan: { code: ent.planCode, name: ent.planName, fellBack: ent.fellBack },
+      features: ent.features, limits: ent.limits, usage, extras: credits,
+      trialEndsAt: s.trial_ends_at, periodEnd: s.current_period_end, graceEndsAt: s.grace_ends_at, daysLeft, staffUsed: s.staff_used,
+      featureCatalogue: FEATURES,
+      plans: plans.map((p) => BillingService.presentPlan(p)),
+      addonPacks: addons.map((a) => ({ code: a.code, kind: a.kind, quantity: a.quantity, priceRupees: rupees(a.price_paise) })),
+      payments: payments.map((p) => ({ receipt: p.receipt, kind: p.kind, planName: p.plan_name, amountRupees: rupees(p.amount_paise), paidAt: p.paid_at, periodEnd: p.period_end })),
+      cashfreeEnv: config.cashfree.env,
       testMode: this.testMode,
     };
   }
 
-  async createOrder(shopId: number, userId: number, b: { kind: 'plan'; planCode: string } | { kind: 'sms_pack'; packCode: string }) {
-    const item = b.kind === 'plan'
-      ? await this.db.one('SELECT id, price_paise AS amount, name FROM plans WHERE code = $1 AND active', [b.planCode])
-      : await this.db.one(`SELECT id, price_paise AS amount, sms_count || ' SMS' AS name FROM sms_packs WHERE code = $1 AND active`, [b.packCode]);
-    if (!item) throw E.notFound(b.kind === 'plan' ? 'Plan' : 'SMS pack');
-    if (b.kind === 'sms_pack') {
-      const st = await this.db.one(`SELECT ${billingStateSql('ss')} AS state FROM shops s LEFT JOIN shop_subscriptions ss ON ss.shop_id = s.id WHERE s.id = $1`, [shopId]);
-      if (st?.state === 'read_only') throw new AppError(402, 'PLAN_EXPIRED', 'Renew your plan first, then buy SMS packs');
-    }
-    return this.startOrder(shopId, userId, { kind: b.kind, amountPaise: Number(item.amount), name: item.name,
-      planId: b.kind === 'plan' ? item.id : null, smsPackId: b.kind === 'sms_pack' ? item.id : null });
+  static presentPlan(p: any) {
+    return {
+      code: p.code, name: p.name, priceRupees: rupees(p.price_paise), yearlyPriceRupees: p.yearly_price_paise == null ? null : rupees(p.yearly_price_paise),
+      free: Number(p.price_paise) === 0, maxStaff: p.max_staff, featureKeys: p.feature_keys as string[],
+      limits: { notifications: p.limit_notifications, products: p.limit_products, offers: p.limit_offers, ads: p.limit_ads },
+    };
   }
 
-  /** Creates the Razorpay order (or a test order) and the 'created' payment row. Shared by plans, SMS packs and ads. */
-  async startOrder(shopId: number, userId: number, o: { kind: 'plan' | 'sms_pack' | 'ad'; amountPaise: number; name: string; planId?: number | null; smsPackId?: number | null; adId?: number | null }) {
-    if (!this.testMode && !config.razorpay.keyId) throw new AppError(503, 'PAYMENTS_OFF', 'Online payment is not set up yet. Please contact Mere Points.');
+  async createOrder(shopId: number, userId: number, b: { kind: 'plan'; planCode: string; period?: 'monthly' | 'yearly' } | { kind: 'sms_pack'; packCode: string } | { kind: 'addon'; packCode: string }) {
+    if (b.kind === 'plan') {
+      const plan = await this.db.one('SELECT id, name, price_paise, yearly_price_paise FROM plans WHERE code = $1 AND active', [b.planCode]);
+      if (!plan) throw E.notFound('Package');
+      const period = b.period ?? 'monthly';
+      const amount = period === 'yearly' ? plan.yearly_price_paise : plan.price_paise;
+      if (amount == null) throw E.bad('NO_YEARLY_PRICE', `The ${plan.name} package has no yearly price`);
+      if (Number(amount) <= 0) throw E.bad('FREE_PLAN', 'This package is free. Nothing to pay.');
+      return this.startOrder(shopId, userId, { kind: 'plan', amountPaise: Number(amount), name: `${plan.name} package · ${period}`, planId: plan.id, period });
+    }
+    const state = (await this.db.one(`SELECT ${billingStateSql('ss')} AS state, ss.cancelled FROM shops s LEFT JOIN shop_subscriptions ss ON ss.shop_id = s.id WHERE s.id = $1`, [shopId]))?.state;
+    if (b.kind === 'addon') {
+      const pack = await this.db.one('SELECT id, kind, quantity, price_paise FROM addon_packs WHERE code = $1 AND active', [b.packCode]);
+      if (!pack) throw E.notFound('Extra pack');
+      // Extras live as long as the paid period, so a shop needs a paid package to buy one.
+      const ent = await loadEntitlements(this.db.pool, shopId);
+      if (ent.fellBack || state === 'free') throw new AppError(402, 'PLAN_REQUIRED', 'Extra packs are for paid packages. Choose a package first.');
+      return this.startOrder(shopId, userId, { kind: 'addon', amountPaise: Number(pack.price_paise), name: `${pack.quantity} extra ${pack.kind}`, addonPackId: pack.id });
+    }
+    const item = await this.db.one(`SELECT id, price_paise AS amount, sms_count || ' SMS' AS name FROM sms_packs WHERE code = $1 AND active`, [b.packCode]);
+    if (!item) throw E.notFound('SMS pack');
+    if (state === 'read_only') throw new AppError(402, 'PLAN_EXPIRED', 'Renew your plan first, then buy SMS packs');
+    return this.startOrder(shopId, userId, { kind: 'sms_pack', amountPaise: Number(item.amount), name: item.name, smsPackId: item.id });
+  }
+
+  private get cfBase() { return config.cashfree.env === 'sandbox' ? 'https://sandbox.cashfree.com' : 'https://api.cashfree.com'; }
+  private cfHeaders() {
+    return { 'Content-Type': 'application/json', 'x-api-version': '2023-08-01', 'x-client-id': config.cashfree.appId, 'x-client-secret': config.cashfree.secretKey };
+  }
+
+  /** Creates the Cashfree order (or a test order) and the 'created' payment row. Shared by packages, extra packs and ads. */
+  async startOrder(shopId: number, userId: number, o: { kind: 'plan' | 'sms_pack' | 'ad' | 'addon'; amountPaise: number; name: string; planId?: number | null; smsPackId?: number | null; adId?: number | null; addonPackId?: number | null; period?: 'monthly' | 'yearly' }) {
+    if (!this.testMode && !config.cashfree.appId) throw new AppError(503, 'PAYMENTS_OFF', 'Online payment is not set up yet. Please contact Mere Points.');
     const receipt = receiptNo();
-    let orderId: string;
-    if (this.testMode) {
-      orderId = 'order_test_' + randomBytes(7).toString('hex');
-    } else {
-      const res = await fetch('https://api.razorpay.com/v1/orders', {
+    let paymentSessionId: string | null = null;
+    if (!this.testMode) {
+      const u = await this.db.one('SELECT mobile, email FROM users WHERE id = $1', [userId]);
+      const res = await fetch(`${this.cfBase}/pg/orders`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Basic ' + Buffer.from(`${config.razorpay.keyId}:${config.razorpay.keySecret}`).toString('base64') },
-        body: JSON.stringify({ amount: o.amountPaise, currency: 'INR', receipt, notes: { shopId: String(shopId), kind: o.kind } }),
+        headers: this.cfHeaders(),
+        body: JSON.stringify({
+          order_id: receipt, order_amount: o.amountPaise / 100, order_currency: 'INR', order_note: o.name.slice(0, 100),
+          customer_details: { customer_id: `u${userId}`, customer_phone: String(u?.mobile ?? '').slice(-10), ...(u?.email ? { customer_email: u.email } : {}) },
+          order_tags: { shopId: String(shopId), kind: o.kind },
+        }),
       });
       if (!res.ok) throw new AppError(502, 'PAYMENT_GATEWAY', 'Could not start the payment. Please try again.');
-      orderId = ((await res.json()) as { id: string }).id;
+      paymentSessionId = ((await res.json()) as { payment_session_id: string }).payment_session_id;
     }
+    const orderId = this.testMode ? 'order_test_' + randomBytes(7).toString('hex') : receipt;
     await this.db.pool.query(
-      `INSERT INTO payments (public_id, shop_id, kind, plan_id, sms_pack_id, ad_id, amount_paise, provider, order_id, created_by)
-       VALUES ($1,$2,$3::payment_kind,$4,$5,$6,$7,$8,$9,$10)`,
-      [receipt, shopId, o.kind, o.planId ?? null, o.smsPackId ?? null, o.adId ?? null, o.amountPaise, this.testMode ? 'test' : 'razorpay', orderId, userId],
+      `INSERT INTO payments (public_id, shop_id, kind, plan_id, sms_pack_id, ad_id, addon_pack_id, billing_period, amount_paise, provider, order_id, created_by)
+       VALUES ($1,$2,$3::payment_kind,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [receipt, shopId, o.kind, o.planId ?? null, o.smsPackId ?? null, o.adId ?? null, o.addonPackId ?? null, o.period ?? 'monthly', o.amountPaise, this.testMode ? 'test' : 'cashfree', orderId, userId],
     );
-    return { receipt, orderId, amountPaise: o.amountPaise, currency: 'INR', description: o.name, keyId: config.razorpay.keyId || null, testMode: this.testMode };
+    return { receipt, orderId, amountPaise: o.amountPaise, currency: 'INR', description: o.name, paymentSessionId, cashfreeEnv: config.cashfree.env, testMode: this.testMode };
   }
 
-  /** Checkout success callback from the app/web. Signature = HMAC(order_id|payment_id, key secret). */
-  async verify(shopId: number, b: { orderId: string; paymentId: string; signature: string }) {
-    const ok = this.testMode
-      ? b.signature === 'test'
-      : safeEqual(createHmac('sha256', config.razorpay.keySecret).update(`${b.orderId}|${b.paymentId}`).digest('hex'), b.signature);
-    if (!ok) throw E.bad('BAD_SIGNATURE', 'Payment could not be verified');
-    return this.db.tx((c) => this.applyPaid(c, b.orderId, b.paymentId, shopId));
+  /** Checkout finished in the app/web. We never trust the client: ask Cashfree whether this order really was paid. */
+  async verify(shopId: number, b: { orderId: string; paymentId?: string; signature?: string }) {
+    if (this.testMode) {
+      if (b.signature !== 'test') throw E.bad('BAD_SIGNATURE', 'Payment could not be verified');
+      return this.db.tx((c) => this.applyPaid(c, b.orderId, b.paymentId ?? 'pay_test_' + b.orderId, shopId));
+    }
+    const own = await this.db.one('SELECT amount_paise FROM payments WHERE order_id = $1 AND shop_id = $2', [b.orderId, shopId]);
+    if (!own) throw E.notFound('Payment');
+    const paid = await this.cashfreePaid(b.orderId, Number(own.amount_paise));
+    if (!paid) throw E.bad('NOT_PAID', 'This payment is not complete yet. If money was deducted it will be added in a few minutes.');
+    return this.db.tx((c) => this.applyPaid(c, b.orderId, paid, shopId));
   }
 
-  /** Razorpay webhook (payment.captured / order.paid): catches payments when the app closed mid-way. */
-  async webhook(raw: Buffer | undefined, signature: string | undefined) {
-    if (!config.razorpay.webhookSecret) throw E.forbidden('WEBHOOK_OFF', 'Webhook secret not configured');
-    if (!raw || !signature) throw E.bad('BAD_WEBHOOK', 'Missing body or signature');
-    const expected = createHmac('sha256', config.razorpay.webhookSecret).update(raw).digest('hex');
+  /** Returns Cashfree's payment id when the order has a successful payment for at least the expected amount. */
+  private async cashfreePaid(orderId: string, amountPaise: number): Promise<string | null> {
+    const res = await fetch(`${this.cfBase}/pg/orders/${encodeURIComponent(orderId)}/payments`, { headers: this.cfHeaders() });
+    if (!res.ok) throw new AppError(502, 'PAYMENT_GATEWAY', 'Could not check the payment. Please try again.');
+    const list = (await res.json()) as { cf_payment_id: string | number; payment_status: string; payment_amount: number }[];
+    const ok = list.find((p) => p.payment_status === 'SUCCESS' && Math.round(Number(p.payment_amount) * 100) >= amountPaise);
+    return ok ? String(ok.cf_payment_id) : null;
+  }
+
+  /** Cashfree webhook (PAYMENT_SUCCESS_WEBHOOK): catches payments when the app closed mid-way. Signature = base64(HMAC-SHA256(timestamp + body)). */
+  async webhook(raw: Buffer | undefined, signature: string | undefined, timestamp: string | undefined) {
+    if (!config.cashfree.secretKey) throw E.forbidden('WEBHOOK_OFF', 'Payment secret not configured');
+    if (!raw || !signature || !timestamp) throw E.bad('BAD_WEBHOOK', 'Missing body, timestamp or signature');
+    const expected = createHmac('sha256', config.cashfree.secretKey).update(timestamp + raw.toString('utf8')).digest('base64');
     if (!safeEqual(expected, signature)) throw E.bad('BAD_SIGNATURE', 'Bad webhook signature');
     const ev = JSON.parse(raw.toString('utf8'));
-    const pay = ev?.payload?.payment?.entity;
-    if (!['payment.captured', 'order.paid'].includes(ev?.event) || !pay?.order_id) return { ignored: true };
-    await this.db.tx((c) => this.applyPaid(c, pay.order_id, pay.id, null));
+    const orderId = ev?.data?.order?.order_id;
+    const pay = ev?.data?.payment;
+    if (ev?.type !== 'PAYMENT_SUCCESS_WEBHOOK' || !orderId || pay?.payment_status !== 'SUCCESS') return { ignored: true };
+    await this.db.tx((c) => this.applyPaid(c, orderId, String(pay.cf_payment_id), null));
     return { ok: true };
   }
 
@@ -162,14 +206,23 @@ export class BillingService {
          RETURNING GREATEST(now(), COALESCE(current_period_end, trial_ends_at)) AS start`, [p.shop_id, p.plan_id],
       )).rows[0];
       const end = (await c.query(
-        `UPDATE shop_subscriptions SET plan_id = $2, current_period_end = $3::timestamptz + interval '1 month', cancelled = FALSE, updated_at = now()
-          WHERE shop_id = $1 RETURNING current_period_end`, [p.shop_id, p.plan_id, sub.start],
+        `UPDATE shop_subscriptions SET plan_id = $2, current_period_end = $3::timestamptz + CASE WHEN $4 = 'yearly' THEN interval '1 year' ELSE interval '1 month' END,
+                cancelled = FALSE, updated_at = now()
+          WHERE shop_id = $1 RETURNING current_period_end`, [p.shop_id, p.plan_id, sub.start, p.billing_period],
       )).rows[0].current_period_end;
       await c.query('UPDATE shops SET sms_balance = sms_balance + $2 WHERE id = $1', [p.shop_id, plan.sms_included]);
       await c.query(
         `UPDATE payments SET status = 'paid', paid_at = now(), provider_payment_id = $2, period_start = $3, period_end = $4, sms_added = $5 WHERE id = $1`,
         [p.id, providerPaymentId, sub.start, end, plan.sms_included],
       );
+    } else if (p.kind === 'addon') {
+      const pack = (await c.query('SELECT kind, quantity FROM addon_packs WHERE id = $1', [p.addon_pack_id])).rows[0];
+      const until = (await c.query(`SELECT COALESCE(current_period_end, trial_ends_at) AS e FROM shop_subscriptions WHERE shop_id = $1`, [p.shop_id])).rows[0]?.e;
+      await c.query(
+        `INSERT INTO shop_addon_credits (shop_id, kind, quantity, expires_at, payment_id) VALUES ($1,$2,$3,GREATEST($4::timestamptz, now()),$5)`,
+        [p.shop_id, pack.kind, pack.quantity, until, p.id],
+      );
+      await c.query(`UPDATE payments SET status = 'paid', paid_at = now(), provider_payment_id = $2 WHERE id = $1`, [p.id, providerPaymentId]);
     } else if (p.kind === 'ad') {
       // Paid → waits for Super Admin review. If the ad was cancelled meanwhile, the admin team refunds by hand.
       await c.query(`UPDATE ads SET status = 'pending_review', updated_at = now() WHERE id = $1 AND status = 'pending_payment'`, [p.ad_id]);

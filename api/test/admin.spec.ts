@@ -64,71 +64,90 @@ describe('admin login', () => {
 });
 
 describe('billing', () => {
-  test('approval starts a 30-day trial on the default plan', async () => {
-    const { owner: o, shopId } = await makeShop(owner);
+  test('a new shop starts on the free Basic package: nothing locked out, paid features off', async () => {
+    const { owner: o, shopId } = await makeShop(owner, {}, { plan: null });
     const b = (await http().get('/v1/shop/billing').set(auth(o.token, shopId)).expect(200)).body;
-    expect(b.state).toBe('trial');
-    expect(b.plan.code).toBe('pro');
-    expect(b.daysLeft).toBe(30);
+    expect(b.state).toBe('free');
+    expect(b.plan).toMatchObject({ code: 'basic', fellBack: false });
+    expect(b.features).toEqual([]);
     expect(b.testMode).toBe(true);
-    expect((await shopMe(o.token, shopId)).billing).toBe('trial');
+    expect((await shopMe(o.token, shopId)).billing).toBe('free');
+    const c = await makeCustomer();
+    await bill(o.token, shopId, c.userId, 20000).expect(201); // points still work on Basic
+    const locked = await http().get('/v1/shop/reports/daily').set(auth(o.token, shopId));
+    expect(locked.status).toBe(402);
+    expect(locked.body.code).toBe('FEATURE_LOCKED');
   });
 
-  test('after grace the shop is read-only: no points or SMS, but customers can still redeem', async () => {
+  test('after grace a paid shop falls back to Basic: points and redeeming keep working, paid features switch off', async () => {
     const { owner: o, shopId } = await makeShop(owner);
     const c = await makeCustomer();
     await bill(o.token, shopId, c.userId, 20000).expect(201);
-    // trial ended 3 days ago -> grace (7 days)
     await pg.query(`UPDATE shop_subscriptions SET trial_ends_at = now() - interval '3 days' WHERE shop_id = $1`, [shopId]);
     expect((await shopMe(o.token, shopId)).billing).toBe('grace');
-    await bill(o.token, shopId, c.userId, 1000).expect(201);
-    // 10 days ago -> read-only
+    await http().get('/v1/shop/reports/daily').set(auth(o.token, shopId)).expect(200); // grace = full access
     await pg.query(`UPDATE shop_subscriptions SET trial_ends_at = now() - interval '10 days' WHERE shop_id = $1`, [shopId]);
-    const blocked = await bill(o.token, shopId, c.userId, 1000).expect(402);
-    expect(blocked.body.code).toBe('PLAN_EXPIRED');
-    await http().post('/v1/shop/messages').set(auth(o.token, shopId)).send({ segment: 'all', text: 'Diwali offer' }).expect(402);
+    await bill(o.token, shopId, c.userId, 1000).expect(201);
+    const b = (await http().get('/v1/shop/billing').set(auth(o.token, shopId))).body;
+    expect(b.plan).toMatchObject({ code: 'basic', fellBack: true });
+    const locked = await http().post('/v1/shop/notifications/audience').set(auth(o.token, shopId)).send({});
+    expect(locked.body.code).toBe('FEATURE_LOCKED');
     const r = await http().post('/v1/shop/redemptions').set(auth(o.token, shopId)).send({ customerId: c.userId, points: 500, method: 'cash' });
     expect(r.status).toBe(201);
   });
 
-  test('paying a plan (test mode) activates it, adds included SMS, extends from the current end; replay is a no-op', async () => {
-    const { owner: o, shopId } = await makeShop(owner);
-    const before = (await http().get('/v1/shop/billing').set(auth(o.token, shopId))).body;
-    const ord = await http().post('/v1/shop/billing/orders').set(auth(o.token, shopId)).send({ kind: 'plan', planCode: 'basic' }).expect(201);
-    expect(ord.body.amountPaise).toBe(49900);
+  test('paying a package (test mode) activates it with its features; replay is a no-op; yearly lasts a year', async () => {
+    const { owner: o, shopId } = await makeShop(owner, {}, { plan: null });
+    const ord = await http().post('/v1/shop/billing/orders').set(auth(o.token, shopId)).send({ kind: 'plan', planCode: 'business' }).expect(201);
+    expect(ord.body.amountPaise).toBe(99900);
     await http().post('/v1/shop/billing/verify').set(auth(o.token, shopId)).send({ orderId: ord.body.orderId, paymentId: 'pay_x', signature: 'bad' }).expect(400);
-    const v = await http().post('/v1/shop/billing/verify').set(auth(o.token, shopId)).send({ orderId: ord.body.orderId, paymentId: 'pay_1', signature: 'test' }).expect(201);
-    expect(v.body.smsAdded).toBe(100);
-    const again = await http().post('/v1/shop/billing/verify').set(auth(o.token, shopId)).send({ orderId: ord.body.orderId, paymentId: 'pay_1', signature: 'test' }).expect(201);
-    expect(again.body.smsBalance).toBe(v.body.smsBalance);
+    await http().post('/v1/shop/billing/verify').set(auth(o.token, shopId)).send({ orderId: ord.body.orderId, paymentId: 'pay_1', signature: 'test' }).expect(201);
+    await http().post('/v1/shop/billing/verify').set(auth(o.token, shopId)).send({ orderId: ord.body.orderId, paymentId: 'pay_1', signature: 'test' }).expect(201);
     const after = (await http().get('/v1/shop/billing').set(auth(o.token, shopId))).body;
     expect(after.state).toBe('active');
-    expect(after.plan.code).toBe('basic');
-    // paid during a 30-day trial: about 30 + one month
-    expect(after.daysLeft).toBeGreaterThanOrEqual(before.daysLeft + 28);
+    expect(after.plan.code).toBe('business');
+    expect(after.features).toContain('dues_book');
+    expect(after.features).not.toContain('reports');
+    expect(after.daysLeft).toBeGreaterThanOrEqual(28);
     expect(after.payments).toHaveLength(1);
+
+    const yr = await http().post('/v1/shop/billing/orders').set(auth(o.token, shopId)).send({ kind: 'plan', planCode: 'advanced', period: 'yearly' }).expect(201);
+    expect(yr.body.amountPaise).toBe(1999000);
+    await http().post('/v1/shop/billing/verify').set(auth(o.token, shopId)).send({ orderId: yr.body.orderId, signature: 'test' }).expect(201);
+    const y = (await http().get('/v1/shop/billing').set(auth(o.token, shopId))).body;
+    expect(y.plan.code).toBe('advanced');
+    expect(y.daysLeft).toBeGreaterThan(380); // rest of the month + a year
+    // the free package cannot be "bought"
+    await http().post('/v1/shop/billing/orders').set(auth(o.token, shopId)).send({ kind: 'plan', planCode: 'basic' }).expect(400);
   });
 
-  test('a lapsed shop that pays is unblocked immediately; period starts today', async () => {
+  test('a lapsed shop that pays gets its features back; period starts today', async () => {
     const { owner: o, shopId } = await makeShop(owner);
-    const c = await makeCustomer();
     await pg.query(`UPDATE shop_subscriptions SET trial_ends_at = now() - interval '40 days' WHERE shop_id = $1`, [shopId]);
-    await bill(o.token, shopId, c.userId, 5000).expect(402);
+    await http().get('/v1/shop/reports/daily').set(auth(o.token, shopId)).expect(402);
     await http().post('/v1/shop/billing/orders').set(auth(o.token, shopId)).send({ kind: 'sms_pack', packCode: 'sms500' }).expect(402);
-    const ord = await http().post('/v1/shop/billing/orders').set(auth(o.token, shopId)).send({ kind: 'plan', planCode: 'pro' }).expect(201);
+    await http().post('/v1/shop/billing/orders').set(auth(o.token, shopId)).send({ kind: 'addon', packCode: 'notif100' }).expect(402);
+    const ord = await http().post('/v1/shop/billing/orders').set(auth(o.token, shopId)).send({ kind: 'plan', planCode: 'advanced' }).expect(201);
     await http().post('/v1/shop/billing/verify').set(auth(o.token, shopId)).send({ orderId: ord.body.orderId, paymentId: 'pay_2', signature: 'test' }).expect(201);
-    await bill(o.token, shopId, c.userId, 5000).expect(201);
+    await http().get('/v1/shop/reports/daily').set(auth(o.token, shopId)).expect(200);
     const b = (await http().get('/v1/shop/billing').set(auth(o.token, shopId))).body;
     expect(b.daysLeft).toBeGreaterThanOrEqual(28);
     expect(b.daysLeft).toBeLessThanOrEqual(31);
   });
 
-  test('staff limit follows the plan', async () => {
-    const { owner: o, shopId } = await makeShop(owner);
-    await pg.query(`UPDATE shop_subscriptions SET plan_id = (SELECT id FROM plans WHERE code = 'basic') WHERE shop_id = $1`, [shopId]);
-    await http().post('/v1/shop/staff').set(auth(o.token, shopId)).send({ mobile: '9811100001', name: 'Amit' }).expect(201);
-    const r = await http().post('/v1/shop/staff').set(auth(o.token, shopId)).send({ mobile: '9811100002', name: 'Sunil' }).expect(402);
-    expect(r.body.code).toBe('STAFF_LIMIT');
+  test('staff logins need the Staff feature and follow the package staff limit', async () => {
+    const { owner: o, shopId } = await makeShop(owner, {}, { plan: 'business' });
+    const locked = await http().post('/v1/shop/staff').set(auth(o.token, shopId)).send({ mobile: '9811100001', name: 'Amit' });
+    expect(locked.body.code).toBe('FEATURE_LOCKED');
+    await pg.query(`UPDATE plans SET max_staff = 1 WHERE code = 'advanced'`);
+    try {
+      await pg.query(`UPDATE shop_subscriptions SET plan_id = (SELECT id FROM plans WHERE code = 'advanced') WHERE shop_id = $1`, [shopId]);
+      await http().post('/v1/shop/staff').set(auth(o.token, shopId)).send({ mobile: '9811100001', name: 'Amit' }).expect(201);
+      const r = await http().post('/v1/shop/staff').set(auth(o.token, shopId)).send({ mobile: '9811100002', name: 'Sunil' }).expect(402);
+      expect(r.body.code).toBe('STAFF_LIMIT');
+    } finally {
+      await pg.query(`UPDATE plans SET max_staff = 10 WHERE code = 'advanced'`);
+    }
   });
 
   test('admin can record an offline payment / free days', async () => {
@@ -145,15 +164,16 @@ describe('billing', () => {
     const { config } = await import('../src/config');
     const { owner: o, shopId } = await makeShop(owner);
     const ord = await http().post('/v1/shop/billing/orders').set(auth(o.token, shopId)).send({ kind: 'sms_pack', packCode: 'sms1000' }).expect(201);
-    config.razorpay.webhookSecret = 'whsec_test';
-    const body = JSON.stringify({ event: 'payment.captured', payload: { payment: { entity: { id: 'pay_wh1', order_id: ord.body.orderId } } } });
-    const sig = createHmac('sha256', 'whsec_test').update(body).digest('hex');
-    await http().post('/v1/billing/razorpay/webhook').set('Content-Type', 'application/json').set('X-Razorpay-Signature', 'bad').send(body).expect(400);
+    config.cashfree.secretKey = 'cf_secret_test';
+    const body = JSON.stringify({ type: 'PAYMENT_SUCCESS_WEBHOOK', data: { order: { order_id: ord.body.orderId }, payment: { cf_payment_id: 'cfpay_1', payment_status: 'SUCCESS' } } });
+    const ts = String(Date.now());
+    const sig = createHmac('sha256', 'cf_secret_test').update(ts + body).digest('base64');
+    await http().post('/v1/billing/cashfree/webhook').set('Content-Type', 'application/json').set('x-webhook-timestamp', ts).set('x-webhook-signature', 'bad').send(body).expect(400);
     const smsBefore = (await pg.query('SELECT sms_balance FROM shops WHERE id = $1', [shopId])).rows[0].sms_balance;
-    for (let i = 0; i < 2; i++) await http().post('/v1/billing/razorpay/webhook').set('Content-Type', 'application/json').set('X-Razorpay-Signature', sig).send(body).expect(201);
+    for (let i = 0; i < 2; i++) await http().post('/v1/billing/cashfree/webhook').set('Content-Type', 'application/json').set('x-webhook-timestamp', ts).set('x-webhook-signature', sig).send(body).expect(201);
     const smsAfter = (await pg.query('SELECT sms_balance FROM shops WHERE id = $1', [shopId])).rows[0].sms_balance;
     expect(smsAfter - smsBefore).toBe(1000);
-    config.razorpay.webhookSecret = '';
+    config.cashfree.secretKey = '';
     expect(BillingService).toBeDefined();
   });
 });
@@ -183,12 +203,12 @@ describe('admin portal data', () => {
     expect(cd.wallets[0].balance_points).toBe(500);
 
     await http().put('/v1/admin/settings').set(auth(owner.token)).send({ grace_days: 999 }).expect(400);
-    const st = (await http().put('/v1/admin/settings').set(auth(owner.token)).send({ trial_days: 14, defaultPlan: 'basic' }).expect(200)).body;
+    const st = (await http().put('/v1/admin/settings').set(auth(owner.token)).send({ trial_days: 14, defaultPlan: 'business' }).expect(200)).body;
     expect(st.editable.find((e: any) => e.key === 'trial_days').value).toBe(14);
-    const { owner: o2, shopId: s2 } = await makeShop(owner);
+    const { owner: o2, shopId: s2 } = await makeShop(owner, {}, { plan: null });
     const b2 = (await http().get('/v1/shop/billing').set(auth(o2.token, s2))).body;
-    expect([b2.daysLeft, b2.plan.code]).toEqual([14, 'basic']);
-    await http().put('/v1/admin/settings').set(auth(owner.token)).send({ trial_days: 30, defaultPlan: 'pro' }).expect(200);
+    expect([b2.daysLeft, b2.plan.code]).toEqual([14, 'business']);
+    await http().put('/v1/admin/settings').set(auth(owner.token)).send({ trial_days: 0, defaultPlan: 'basic' }).expect(200);
 
     const audit = (await http().get('/v1/admin/audit').set(auth(owner.token)).expect(200)).body;
     expect(audit.find((x: any) => x.action === 'settings.update').by_admin).toBe(owner.username);

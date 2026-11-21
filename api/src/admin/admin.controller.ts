@@ -8,6 +8,7 @@ import { RedeemService } from '../redeem/redeem.service';
 import { ExpiryService } from '../jobs/expiry.service';
 import { SmsService } from '../sms/sms.service';
 import { BillingService } from '../billing/billing.service';
+import { FEATURES } from '../billing/entitlements';
 import { SchedulerService } from '../jobs/scheduler.service';
 
 const role = z.enum(['owner', 'ops', 'support']);
@@ -116,14 +117,34 @@ export class AdminController {
 
   // ---------------------------------------------------------------- plans & packs
   @AdminOnly('owner', 'ops') @Get('plans')
-  async plans() { return { plans: await this.admin.plans(), smsPacks: await this.admin.smsPacks() }; }
+  async plans() { return { plans: await this.admin.plans(), addonPacks: await this.admin.addonPacks(), smsPacks: await this.admin.smsPacks(), featureCatalogue: FEATURES }; }
 
   @AdminOnly('owner') @Post('plans')
   upsertPlan(@CurrentAdmin() a: AdminCtx, @Body() body: unknown) {
+    const lim = z.number().int().min(0).max(1_000_000).nullable();
     return this.admin.upsertPlan(a.id, parse(z.object({
       id: z.number().int().optional(), code: z.string().regex(/^[a-z0-9_]{2,20}$/), name: z.string().min(2).max(30),
-      priceRupees: z.number().min(0).max(100_000), maxStaff: z.number().int().min(0).max(100), smsIncluded: z.number().int().min(0).max(100_000),
-      features: z.array(z.string().max(60)).max(8), active: z.boolean().optional(), sort: z.number().int().optional(),
+      priceRupees: z.number().min(0).max(1_000_000), yearlyPriceRupees: z.number().min(0).max(10_000_000).nullable().optional(),
+      maxStaff: z.number().int().min(0).max(100), featureKeys: z.array(z.string()).max(50),
+      limits: z.object({ notifications: lim, products: lim, offers: lim, ads: lim }),
+      active: z.boolean().optional(), sort: z.number().int().optional(),
+    }), body));
+  }
+
+  @AdminOnly('owner') @Post('addon-packs')
+  upsertAddon(@CurrentAdmin() a: AdminCtx, @Body() body: unknown) {
+    return this.admin.upsertAddonPack(a.id, parse(z.object({
+      id: z.number().int().optional(), code: z.string().regex(/^[a-z0-9_]{2,30}$/), kind: z.enum(['notifications', 'products', 'offers', 'ads']),
+      quantity: z.number().int().positive().max(1_000_000), priceRupees: z.number().positive().max(1_000_000), active: z.boolean().optional(),
+    }), body));
+  }
+
+  @AdminOnly('owner', 'ops') @Put('shops/:id/overrides')
+  overrides(@CurrentAdmin() a: AdminCtx, @Param('id') id: string, @Body() body: unknown) {
+    return this.admin.setShopOverrides(a.id, Number(id), parse(z.object({
+      featuresAdd: z.array(z.string()).optional(), featuresRemove: z.array(z.string()).optional(),
+      limits: z.object({ notifications: z.number().int().min(0).nullable().optional(), products: z.number().int().min(0).nullable().optional(),
+        offers: z.number().int().min(0).nullable().optional(), ads: z.number().int().min(0).nullable().optional() }).optional(),
     }), body));
   }
 

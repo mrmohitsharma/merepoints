@@ -13,7 +13,7 @@ export const SMS = {
   redeemDone: (shop: string, pts: number, rupees: string, ref: string) =>
     `${shop}: ${pts} pts redeemed for Rs ${rupees}. Ref ${ref}. -Mere Points`,
   shopApproved: (shop: string, days: number) =>
-    `${shop} is live on Mere Points. Free trial for ${days} days. Start adding points to your customers now. -Mere Points`,
+    days > 0 ? `${shop} is live on Mere Points. Free trial for ${days} days. Start adding points to your customers now. -Mere Points` : `${shop} is live on Mere Points. Start adding points to your customers now. -Mere Points`,
   shopReactivated: (shop: string) => `${shop} is active again on Mere Points. You can add points and pay out as usual. -Mere Points`,
   shopRejected: () => `Your Mere Points shop registration needs changes. Open the app to see the reason. -Mere Points`,
   shopSuspended: () => `Your Mere Points shop is suspended. Open the app or call support to know more. -Mere Points`,

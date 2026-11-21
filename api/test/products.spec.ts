@@ -139,8 +139,10 @@ describe('work types', () => {
 describe('public pricing', () => {
   test('website can read plans without login', async () => {
     const r = (await http().get('/v1/shops/plans').expect(200)).body;
-    expect(r.plans.map((p: any) => p.code)).toEqual(['basic', 'pro', 'business']);
-    expect(r.plans[0].price_rupees).toBe(499);
-    expect(r.trialDays).toBeGreaterThan(0);
+    expect(r.plans.map((p: any) => p.code)).toEqual(['basic', 'business', 'advanced']);
+    expect(r.plans[0]).toMatchObject({ priceRupees: 0, free: true, featureKeys: [] });
+    expect(r.plans[2].featureKeys).toContain('reports');
+    expect(r.plans[1].yearlyPriceRupees).toBeGreaterThan(0);
+    expect(r.addonPacks.map((a: any) => a.kind).sort()).toEqual(['ads', 'notifications', 'offers', 'products']);
   });
 });

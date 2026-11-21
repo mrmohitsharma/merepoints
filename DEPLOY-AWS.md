@@ -84,8 +84,8 @@ Limits: JPG/PNG/WebP, 2 MB. Keys look like `product/2026-11-19/u42-<random>.jpg`
 
 ## 5. Razorpay
 
-1. Razorpay Dashboard › Settings › API keys › generate **live** keys → `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` on App Runner.
-2. Webhooks › add `https://api.merepoints.in/v1/billing/razorpay/webhook`, events `payment.captured` and `order.paid`, set a secret → `RAZORPAY_WEBHOOK_SECRET`. The webhook catches payments where the owner closed the browser before returning.
+1. Cashfree Dashboard › Developers › API keys → `CASHFREE_APP_ID`, `CASHFREE_SECRET_KEY` on App Runner (`CASHFREE_ENV=production`; use `sandbox` with test keys).
+2. Developers › Webhooks › add `https://api.merepoints.in/v1/billing/cashfree/webhook`, event `Payment Success`. The webhook signs with your secret key, so no separate secret is needed. It catches payments where the owner closed the browser before returning.
 3. Prices are set in Super Admin › Plans & SMS packs. Shop ad prices: Super Admin › Home ads › Shop ad prices.
 4. Shop ad payments use the same keys and webhook. If an ad is rejected after payment, refund it from the Razorpay dashboard (the shop is told by SMS).
 

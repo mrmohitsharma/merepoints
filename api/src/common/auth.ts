@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Db } from '../db/db.service';
 import { AppError, E } from './errors';
 import { billingStateSql, BillingState } from '../billing/state';
+import { requireFeature } from '../billing/entitlements';
 
 export interface AuthUser { id: number; isSuperAdmin: boolean }
 export type AdminRole = 'owner' | 'ops' | 'support';
@@ -24,8 +25,8 @@ export const Public = () => SetMetadata(PUBLIC, true);
 
 /** Marks a route as shop-scoped. Needs header X-Shop-Id and an active membership. */
 export const SHOP = 'shop';
-/** writes: blocked when the shop's plan has lapsed past grace (read-only). Redeeming is never a write here. */
-export type ShopRequirement = { owner?: boolean; perm?: 'canAddPoints' | 'canRedeem' | 'canManual'; allowPending?: boolean; writes?: boolean };
+/** feature: the shop's package must include this feature key (see billing/entitlements.ts). A lapsed plan falls back to the free package, it never locks the shop out. */
+export type ShopRequirement = { owner?: boolean; perm?: 'canAddPoints' | 'canRedeem' | 'canManual'; allowPending?: boolean; writes?: boolean; feature?: string };
 export const ShopRoute = (req: ShopRequirement = {}) => SetMetadata(SHOP, req);
 
 /** Super-admin routes. Needs an admin token (username + password login) with one of these roles. */
@@ -104,9 +105,7 @@ export class AuthGuard implements CanActivate {
       }
       if (shopReq.owner && !isOwner) throw E.forbidden('OWNER_ONLY', 'Only the shop owner can do this');
       if (shopReq.perm && !shop[shopReq.perm]) throw E.forbidden('NO_PERMISSION', 'You do not have permission for this');
-      if (shopReq.writes && shop.billing === 'read_only') {
-        throw new AppError(402, 'PLAN_EXPIRED', 'Your Mere Points plan has expired. Renew in Billing to add points and send SMS again. Customers can still redeem.');
-      }
+      if (shopReq.feature) await requireFeature(this.db.pool, shopId, shopReq.feature);
       req.shop = shop;
     }
     return true;

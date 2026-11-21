@@ -62,10 +62,13 @@ export const shopBody = (over: Record<string, any> = {}) => ({
 });
 
 /** Registers + approves a shop. Returns owner session and shop id. */
-export async function makeShop(admin: { token: string }, over: Record<string, any> = {}) {
+export async function makeShop(admin: { token: string }, over: Record<string, any> = {}, opts: { plan?: string | null } = {}) {
   const owner = await login();
   const r = await http().post('/v1/shops').set(auth(owner.token)).send(shopBody(over)).expect(201);
   await http().post(`/v1/admin/shops/${r.body.id}/status`).set(auth(admin.token)).send({ status: 'approved' }).expect(201);
+  // New shops start on the free Basic package. Most tests exercise paid features, so they run on Advanced unless a test asks otherwise.
+  const plan = opts.plan === undefined ? 'advanced' : opts.plan;
+  if (plan) await setPlan(r.body.id, plan, plan === 'advanced' ? { limits: { ads: 0 } } : {}); // ads: every ad is paid unless a test grants free ones
   return { owner, shopId: r.body.id as number };
 }
 
@@ -100,4 +103,9 @@ export async function assertLedgerInvariants() {
         Number(r.balance_points) !== Number(r.lots) || Number(r.held_points) !== Number(r.open_red) ||
         (r.last_ledger !== null && Number(r.last_ledger) !== Number(r.balance_points)) || Number(r.ledger_sum) !== Number(r.balance_points));
   if (bad.length) throw new Error('Ledger invariant broken: ' + JSON.stringify(bad, null, 1));
+}
+
+/** Puts a shop on a package (30-day trial of it, no payment), optionally with per-shop overrides. */
+export async function setPlan(shopId: number, code: string, overrides: Record<string, unknown> = {}) {
+  await pg.query(`UPDATE shop_subscriptions SET plan_id = (SELECT id FROM plans WHERE code = $2), overrides = $3, trial_ends_at = now() + interval '30 days' WHERE shop_id = $1`, [shopId, code, JSON.stringify(overrides)]);
 }

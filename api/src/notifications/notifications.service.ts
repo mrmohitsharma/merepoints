@@ -6,6 +6,7 @@ import { config } from '../config';
 import { normalizeMobile } from '../common/util';
 import { ShopService } from '../shop/shop.service';
 import { PushService } from './push.service';
+import { takeUnit } from '../billing/entitlements';
 
 const DAYS = z.union([z.literal(7), z.literal(15), z.literal(30), z.literal(60)]);
 
@@ -100,6 +101,8 @@ export class NotificationsService {
     }
 
     const id = await this.db.tx(async (c) => {
+      // Monthly package quota first, then bought extra packs. Payment reminders from the dues book are exempt.
+      if (!opts.skipLimit) await takeUnit(c, shopId, 'notifications');
       const nid = (await c.query(
         `INSERT INTO notifications (shop_id, created_by, title, body, image_url, action_type, action_ref, action_label, filters, scheduled_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, ${later ? '$10' : 'now()'}) RETURNING id`,

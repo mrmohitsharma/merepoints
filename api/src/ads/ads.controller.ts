@@ -23,21 +23,21 @@ export class CustomerAdsController {
 export class ShopAdsController {
   constructor(private ads: AdsService) {}
 
-  @ShopRoute({ owner: true }) @Get('packs') packs() { return this.ads.packs(); }
+  @ShopRoute({ owner: true, feature: 'ads' }) @Get('packs') packs() { return this.ads.packs(); }
 
-  @ShopRoute({ owner: true }) @Get()
+  @ShopRoute({ owner: true, feature: 'ads' }) @Get()
   list(@CurrentShop() s: ShopCtx) { return this.ads.shopList(s.id); }
 
-  @ShopRoute({ owner: true, writes: true }) @Post()
+  @ShopRoute({ owner: true, writes: true, feature: 'ads' }) @Post()
   request(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Body() body: unknown) {
     return this.ads.shopRequest(s.id, u.id, parse(ShopAdInput, body));
   }
 
-  /** Returns a Razorpay order; finish with POST shop/billing/verify like plans. */
-  @ShopRoute({ owner: true }) @Post(':id/pay')
+  /** Returns a Cashfree order; finish with POST shop/billing/verify like plans. */
+  @ShopRoute({ owner: true, feature: 'ads' }) @Post(':id/pay')
   pay(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Param('id') id: string) { return this.ads.shopPay(s.id, u.id, Number(id)); }
 
-  @ShopRoute({ owner: true }) @Post(':id/cancel')
+  @ShopRoute({ owner: true, feature: 'ads' }) @Post(':id/cancel')
   cancel(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Param('id') id: string) { return this.ads.shopCancel(s.id, u.id, Number(id)); }
 }
 

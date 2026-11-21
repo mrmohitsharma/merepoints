@@ -23,11 +23,12 @@ export const config = {
   /** Wrong passwords before an account waits {lockMinutes} minutes. */
   loginMaxFails: 5,
   loginLockMinutes: 15,
-  /** Leave empty to run billing in test mode (no real money). */
-  razorpay: {
-    keyId: process.env.RAZORPAY_KEY_ID ?? '',
-    keySecret: process.env.RAZORPAY_KEY_SECRET ?? '',
-    webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET ?? '',
+  /** Cashfree Payments (shop packages, extra packs, ads). Leave empty to run billing in test mode (no real money). */
+  cashfree: {
+    appId: process.env.CASHFREE_APP_ID ?? '',
+    secretKey: process.env.CASHFREE_SECRET_KEY ?? '',
+    /** 'production' (api.cashfree.com) or 'sandbox' (sandbox.cashfree.com) */
+    env: (process.env.CASHFREE_ENV ?? 'production') as 'production' | 'sandbox',
   },
   /** This API's public address, used in links it hands out (local uploads). */
   publicApiUrl: process.env.PUBLIC_API_URL ?? `http://localhost:${process.env.PORT ?? 3000}/v1`,

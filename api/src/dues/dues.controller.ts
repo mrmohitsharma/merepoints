@@ -8,26 +8,26 @@ import { DueInput, DuesService, PaymentInput } from './dues.service';
 export class ShopDuesController {
   constructor(private dues: DuesService) {}
 
-  @ShopRoute({ perm: 'canAddPoints' }) @Get('customers')
+  @ShopRoute({ perm: 'canAddPoints', feature: 'dues_book' }) @Get('customers')
   outstanding(@CurrentShop() s: ShopCtx) { return this.dues.outstanding(s.id); }
 
-  @ShopRoute({ perm: 'canAddPoints' }) @Get('customer/:customerId')
+  @ShopRoute({ perm: 'canAddPoints', feature: 'dues_book' }) @Get('customer/:customerId')
   book(@CurrentShop() s: ShopCtx, @Param('customerId', ParseIntPipe) customerId: number) { return this.dues.customerBook(s.id, customerId); }
 
-  @ShopRoute({ perm: 'canAddPoints', writes: true }) @Post()
+  @ShopRoute({ perm: 'canAddPoints', writes: true, feature: 'dues_book' }) @Post()
   add(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Body() body: unknown, @Headers('idempotency-key') key?: string) {
     return this.dues.addDue(s, u.id, parse(DueInput, body), key);
   }
 
-  @ShopRoute({ perm: 'canAddPoints', writes: true }) @Post('pay')
+  @ShopRoute({ perm: 'canAddPoints', writes: true, feature: 'dues_book' }) @Post('pay')
   pay(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Body() body: unknown, @Headers('idempotency-key') key?: string) {
     return this.dues.addPayment(s, u.id, parse(PaymentInput, body), key);
   }
 
-  @ShopRoute({ perm: 'canAddPoints', writes: true }) @Post(':entryId/undo')
+  @ShopRoute({ perm: 'canAddPoints', writes: true, feature: 'dues_book' }) @Post(':entryId/undo')
   undo(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Param('entryId', ParseIntPipe) id: number) { return this.dues.undo(s, u.id, id); }
 
-  @ShopRoute({ perm: 'canAddPoints', writes: true }) @Post('customer/:customerId/remind')
+  @ShopRoute({ perm: 'canAddPoints', writes: true, feature: 'dues_book' }) @Post('customer/:customerId/remind')
   remind(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Param('customerId', ParseIntPipe) customerId: number) { return this.dues.remind(s, u.id, customerId); }
 }
 

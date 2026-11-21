@@ -5,6 +5,7 @@ import { ShopService } from '../shop/shop.service';
 import { MilestoneService } from '../customer/milestone.service';
 import { BillingService } from '../billing/billing.service';
 import { billingStateSql } from '../billing/state';
+import { FEATURE_KEYS, LimitKind } from '../billing/entitlements';
 import { SMS, SmsService } from '../sms/sms.service';
 
 const A = (id: number) => ({ admin: id });
@@ -350,18 +351,51 @@ export class AdminService {
     );
   }
 
-  async upsertPlan(adminId: number, b: { id?: number; code: string; name: string; priceRupees: number; maxStaff: number; smsIncluded: number; features: string[]; active?: boolean; sort?: number }) {
+  async upsertPlan(adminId: number, b: { id?: number; code: string; name: string; priceRupees: number; yearlyPriceRupees?: number | null; maxStaff: number; featureKeys: string[]; limits: Record<LimitKind, number | null>; active?: boolean; sort?: number }) {
+    const unknown = b.featureKeys.filter((k) => !FEATURE_KEYS.includes(k));
+    if (unknown.length) throw E.bad('BAD_FEATURE', `Unknown feature: ${unknown.join(', ')}`);
     return this.db.tx(async (c) => {
-      const params = [b.code, b.name, Math.round(b.priceRupees * 100), b.maxStaff, b.smsIncluded, b.features, b.active ?? true, b.sort ?? 0];
+      const params = [b.code, b.name, Math.round(b.priceRupees * 100), b.yearlyPriceRupees == null ? null : Math.round(b.yearlyPriceRupees * 100), b.maxStaff,
+        [...new Set(b.featureKeys)], b.limits.notifications, b.limits.products, b.limits.offers, b.limits.ads, b.active ?? true, b.sort ?? 0];
       const r = b.id
         ? (await c.query(
-            `UPDATE plans SET code = $2, name = $3, price_paise = $4, max_staff = $5, sms_included = $6, features = $7, active = $8, sort = $9 WHERE id = $1 RETURNING id`,
+            `UPDATE plans SET code = $2, name = $3, price_paise = $4, yearly_price_paise = $5, max_staff = $6, feature_keys = $7,
+                    limit_notifications = $8, limit_products = $9, limit_offers = $10, limit_ads = $11, active = $12, sort = $13 WHERE id = $1 RETURNING id`,
             [b.id, ...params])).rows[0]
         : (await c.query(
-            `INSERT INTO plans (code, name, price_paise, max_staff, sms_included, features, active, sort) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`, params)).rows[0];
-      if (!r) throw E.notFound('Plan');
+            `INSERT INTO plans (code, name, price_paise, yearly_price_paise, max_staff, feature_keys, limit_notifications, limit_products, limit_offers, limit_ads, active, sort)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`, params)).rows[0];
+      if (!r) throw E.notFound('Package');
       await this.shops.audit(c, A(adminId), null, 'plan.upsert', 'plan', r.id, b);
       return { id: r.id };
+    });
+  }
+
+  addonPacks() {
+    return this.db.many('SELECT id, code, kind, quantity, price_paise / 100.0 AS price_rupees, active FROM addon_packs ORDER BY kind, quantity');
+  }
+
+  async upsertAddonPack(adminId: number, b: { id?: number; code: string; kind: LimitKind; quantity: number; priceRupees: number; active?: boolean }) {
+    return this.db.tx(async (c) => {
+      const params = [b.code, b.kind, b.quantity, Math.round(b.priceRupees * 100), b.active ?? true];
+      const r = b.id
+        ? (await c.query('UPDATE addon_packs SET code = $2, kind = $3, quantity = $4, price_paise = $5, active = $6 WHERE id = $1 RETURNING id', [b.id, ...params])).rows[0]
+        : (await c.query('INSERT INTO addon_packs (code, kind, quantity, price_paise, active) VALUES ($1,$2,$3,$4,$5) RETURNING id', params)).rows[0];
+      if (!r) throw E.notFound('Extra pack');
+      await this.shops.audit(c, A(adminId), null, 'addon_pack.upsert', 'addon_pack', r.id, b);
+      return { id: r.id };
+    });
+  }
+
+  /** Per-shop exceptions: switch a feature on/off or change a limit for one shop only. {} clears them. */
+  async setShopOverrides(adminId: number, shopId: number, o: { featuresAdd?: string[]; featuresRemove?: string[]; limits?: Partial<Record<LimitKind, number | null>> }) {
+    const unknown = [...(o.featuresAdd ?? []), ...(o.featuresRemove ?? [])].filter((k) => !FEATURE_KEYS.includes(k));
+    if (unknown.length) throw E.bad('BAD_FEATURE', `Unknown feature: ${unknown.join(', ')}`);
+    return this.db.tx(async (c) => {
+      const r = (await c.query('UPDATE shop_subscriptions SET overrides = $2, updated_at = now() WHERE shop_id = $1 RETURNING shop_id', [shopId, JSON.stringify(o)])).rows[0];
+      if (!r) throw E.notFound('Shop subscription');
+      await this.shops.audit(c, A(adminId), shopId, 'shop.overrides', 'shop', shopId, o);
+      return { ok: true };
     });
   }
 
@@ -386,7 +420,7 @@ export class AdminService {
     const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
     return {
       editable: Object.entries(EDITABLE_SETTINGS).map(([key, m]) => ({ key, ...m, value: Number(map[key] ?? 0) })),
-      defaultPlan: map.default_plan ?? 'pro',
+      defaultPlan: map.default_plan ?? 'basic',
       milestoneBasis: map.milestone_basis ?? 'points',
     };
   }

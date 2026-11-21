@@ -12,6 +12,7 @@ import { ShopCtx } from '../common/auth';
 import { ShopService } from '../shop/shop.service';
 import { bumpStats, IST_DAY_START, lockWallet, writeLedger } from './ledger';
 import { MilestoneService } from '../customer/milestone.service';
+import { requireFeature } from '../billing/entitlements';
 
 export interface EarnBillInput { customerId: number; amountRupees: number; invoiceNo?: string; photoUrl?: string; photoUrls?: string[]; items?: { productId: number; qty: number }[] }
 export interface EarnManualInput { customerId: number; points: number; reason: string; remarks?: string; invoiceNo?: string }
@@ -74,6 +75,7 @@ export class PointsService {
     const invoiceNo = input.invoiceNo?.trim() || null;
 
     return this.db.tx((c) => idempotent(c, staffId, idemKey, { k: 'earnBill', shop: shop.id, ...input }, async () => {
+      if (input.photoUrls?.length || input.photoUrl) await requireFeature(c, shop.id, 'bill_photos');
       const cfg = await this.shops.getConfig(shop.id, c);
       if (!cfg.enabled) throw E.bad('LOYALTY_OFF', 'Loyalty points are switched off for your shop');
       if (amountPaise < Number(cfg.min_bill_paise)) {

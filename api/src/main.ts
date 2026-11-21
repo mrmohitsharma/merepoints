@@ -13,12 +13,12 @@ function assertProductionConfig() {
   if (weak.length) throw new Error(`Set strong JWT_SECRET, QR_SECRET, OTP_SECRET (32+ chars). Weak: ${weak.join(', ')}`);
   if (config.otpDevEcho) throw new Error('OTP_DEV_ECHO must be off in production');
   if (!config.uploads.bucket) throw new Error('Set S3_BUCKET and S3_PUBLIC_BASE_URL for photo uploads in production');
-  if (!config.razorpay.keyId || !config.razorpay.keySecret) console.warn('Razorpay keys not set: shops cannot pay for plans yet.');
+  if (!config.cashfree.appId || !config.cashfree.secretKey) console.warn('Cashfree keys not set: shops cannot pay for packages yet.');
 }
 
 export async function createApp() {
   assertProductionConfig();
-  // rawBody: Razorpay webhooks are verified against the exact bytes received.
+  // rawBody: Cashfree webhooks are verified against the exact bytes received.
   const app = await NestFactory.create(AppModule, { logger: ['error', 'warn'], rawBody: true });
   app.setGlobalPrefix('v1');
   // Security headers (API only serves JSON and dev files, so no CSP needed) and gzip for slow mobile networks.

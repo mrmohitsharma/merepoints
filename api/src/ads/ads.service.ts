@@ -6,6 +6,7 @@ import { toPaise } from '../common/util';
 import { BillingService } from '../billing/billing.service';
 import { ShopService } from '../shop/shop.service';
 import { SmsService } from '../sms/sms.service';
+import { tryTakeUnit } from '../billing/entitlements';
 
 const code = z.string().regex(/^[a-z][a-z0-9_]{1,29}$/);
 const Content = {
@@ -139,6 +140,8 @@ export class AdsService {
     const open = await this.db.one(`SELECT count(*)::int AS n FROM ads WHERE shop_id = $1 AND status IN ('pending_payment','pending_review')`, [shopId]);
     if (open!.n >= 3) throw E.bad('TOO_MANY_REQUESTS', 'You already have ads waiting. Pay for or cancel those first.');
     return this.db.tx(async (c) => {
+      // Ads inside the package quota (or a bought extra) are free; any more are paid at the ad pack price.
+      const price = (await tryTakeUnit(c, shopId, 'ads')) ? 0 : pack.price_paise;
       const ad = (await c.query(
         `INSERT INTO ads (status, advertiser_kind, advertiser_name, shop_id, title, subtitle, title_hi, subtitle_hi, image_url, bg_color,
                           link_kind, link_shop_id, link_product_id, target_mode, cities, radius_km, professions,
@@ -149,14 +152,14 @@ export class AdsService {
         [shopId, shop!.name, b.title, b.subtitle ?? null, b.titleHi ?? null, b.subtitleHi ?? null, b.imageUrl ?? null, b.bgColor ?? null,
          b.link.kind, b.link.kind === 'shop' ? shopId : null, b.link.kind === 'product' ? b.link.productId : null,
          b.target === 'city' ? 'cities' : 'near_shop', b.target === 'city' ? [shop!.city] : null, b.target === 'near_shop' ? pack.radius_km : null,
-         b.professions?.length ? b.professions : null, start!.s, pack.days, pack.id, userId, pack.price_paise],
+         b.professions?.length ? b.professions : null, start!.s, pack.days, pack.id, userId, price],
       )).rows[0];
       await this.shops.audit(c, userId, shopId, 'ad.request', 'ad', ad.id, { pack: pack.code });
-      return { id: Number(ad.id), amountRupees: pack.price_paise / 100, needsPayment: pack.price_paise > 0 };
+      return { id: Number(ad.id), amountRupees: price / 100, needsPayment: price > 0, includedInPackage: price === 0 && pack.price_paise > 0 };
     });
   }
 
-  /** Starts the Razorpay order; the shop then calls the usual billing/verify. Paid → pending_review. */
+  /** Starts the Cashfree order; the shop then calls the usual billing/verify. Paid → pending_review. */
   async shopPay(shopId: number, userId: number, adId: number) {
     const ad = await this.db.one(`SELECT a.*, p.name AS pack_name FROM ads a LEFT JOIN ad_packs p ON p.id = a.pack_id WHERE a.id = $1 AND a.shop_id = $2`, [adId, shopId]);
     if (!ad) throw E.notFound('Ad');

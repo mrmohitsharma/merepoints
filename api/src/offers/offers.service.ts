@@ -3,6 +3,7 @@ import { Db } from '../db/db.service';
 import { E } from '../common/errors';
 import { ShopService } from '../shop/shop.service';
 import { SmsService } from '../sms/sms.service';
+import { takeUnit } from '../billing/entitlements';
 
 export type Segment = 'all' | 'inactive_30d' | 'expiring_30d' | 'can_afford_gift' | `profession:${string}`;
 
@@ -21,6 +22,7 @@ export class OffersService {
         const known = (await c.query('SELECT count(*)::int AS n FROM professions WHERE code = ANY($1)', [o.professions])).rows[0].n;
         if (known !== new Set(o.professions).size) throw E.bad('BAD_WORK_TYPE', 'Pick work types from the list');
       }
+      await takeUnit(c, shopId, 'offers');
       // offers_no_overlap (EXCLUDE USING gist) rejects overlap atomically, even with two owners clicking at once.
       const r = (await c.query(
         `INSERT INTO offers (shop_id, name, multiplier_x100, period, professions, created_by)
@@ -58,6 +60,7 @@ export class OffersService {
   // ------------------------------------------------------------ gifts
   async upsertGift(shopId: number, userId: number, g: { id?: number; name: string; pointsCost: number; stock: number; photoUrl?: string; availableUntil?: string | null; visible?: boolean; active?: boolean }) {
     return this.db.tx(async (c) => {
+      if (!g.id) await takeUnit(c, shopId, 'products');
       const r = g.id
         ? (await c.query(
             `UPDATE products SET name = $3, points_cost = $4, stock = $5, photo_url = COALESCE($6, photo_url), available_until = $7,

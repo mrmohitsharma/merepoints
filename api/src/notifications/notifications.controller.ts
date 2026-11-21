@@ -9,19 +9,19 @@ import { AudienceFilters, NotificationInput, NotificationsService } from './noti
 export class ShopNotificationsController {
   constructor(private n: NotificationsService) {}
 
-  @ShopRoute({ owner: true }) @Post('audience')
+  @ShopRoute({ owner: true, feature: 'notifications' }) @Post('audience')
   audience(@CurrentShop() s: ShopCtx, @Body() body: unknown) { return this.n.preview(s.id, parse(AudienceFilters, body)); }
 
-  @ShopRoute({ owner: true, writes: true }) @Post()
+  @ShopRoute({ owner: true, writes: true, feature: 'notifications' }) @Post()
   create(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Body() body: unknown) { return this.n.create(s.id, u.id, parse(NotificationInput, body)); }
 
-  @ShopRoute({ owner: true }) @Get()
+  @ShopRoute({ owner: true, feature: 'notifications' }) @Get()
   list(@CurrentShop() s: ShopCtx) { return this.n.list(s.id); }
 
-  @ShopRoute({ owner: true }) @Get(':id')
+  @ShopRoute({ owner: true, feature: 'notifications' }) @Get(':id')
   detail(@CurrentShop() s: ShopCtx, @Param('id', ParseIntPipe) id: number) { return this.n.detail(s.id, id); }
 
-  @ShopRoute({ owner: true, writes: true }) @Post(':id/cancel')
+  @ShopRoute({ owner: true, writes: true, feature: 'notifications' }) @Post(':id/cancel')
   cancel(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Param('id', ParseIntPipe) id: number) { return this.n.cancel(s.id, u.id, id); }
 }
 

@@ -6,6 +6,7 @@ import { config } from '../config';
 import { normalizeMobile, toPaise } from '../common/util';
 import { BillingService } from '../billing/billing.service';
 import { presentSlabs } from '../points/rate';
+import { loadEntitlements, requireFeature } from '../billing/entitlements';
 
 const pct = z.number().min(0.01).max(50);                      // 5 = 5%
 
@@ -108,11 +109,15 @@ export class ShopService {
   async updateConfig(shopId: number, userId: number, l: LoyaltyConfigInput) {
     return this.db.tx(async (c) => {
       await c.query('SELECT id FROM shops WHERE id = $1 FOR UPDATE', [shopId]); // serialise version numbers
+      if (l.rewardSlabs) await requireFeature(c, shopId, 'reward_slabs');
       const row = await this.insertConfig(c, shopId, userId, l);
       await this.audit(c, userId, shopId, 'config.update', 'loyalty_config', row.id, l);
       return { version: row.version };
     });
   }
+
+  /** What the shop's package allows right now (for locking screens in the apps). */
+  entitlements(shopId: number) { return loadEntitlements(this.db.pool, shopId); }
 
   async getConfig(shopId: number, q: Q = this.db.pool) {
     const r = await this.db.one(

@@ -4,6 +4,7 @@ import { Db, Q } from '../db/db.service';
 import { E } from '../common/errors';
 import { toPaise } from '../common/util';
 import { presentSlabs } from '../points/rate';
+import { takeUnit } from '../billing/entitlements';
 
 export const ProductInput = z.object({
   id: z.number().int().positive().optional(),
@@ -87,6 +88,7 @@ export class ProductsService {
       } else {
         const n = (await c.query(`SELECT count(*)::int AS n FROM products WHERE shop_id = $1 AND active`, [shopId])).rows[0].n;
         if (n >= 300) throw E.bad('TOO_MANY_PRODUCTS', 'Up to 300 products per shop. Remove old ones first.');
+        await takeUnit(c, shopId, 'products');
         id = (await c.query(
           `INSERT INTO products (shop_id, kind, name, brand, category, photo_url, mrp_paise, points_cost, stock, bonus_points, unit, available_until, visible)
            VALUES ($1,$2::product_kind,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,COALESCE($13,TRUE)) RETURNING id`,

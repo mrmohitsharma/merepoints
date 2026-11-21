@@ -26,6 +26,7 @@ dependencies:
   share_plus: ^10.1.4           # share CSV reports
   intl: any                     # version pinned by flutter_localizations
   image_picker: ^1.1.2          # product / ad photos (camera or gallery)
+  image: ^4.2.0                 # shrink bill photos under 500 KB on the phone (pure Dart)
   firebase_core: ^3.8.1         # phone push (set FIREBASE_* with --dart-define; push stays off without them)
   firebase_messaging: ^15.1.6
 

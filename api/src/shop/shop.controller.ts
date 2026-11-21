@@ -134,7 +134,7 @@ export class ShopController {
   earnBill(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Body() body: unknown, @Headers('idempotency-key') key?: string) {
     return this.points.earnBill(s, u.id, parse(z.object({
       customerId: z.number().int().positive(), amountRupees: z.number().positive().max(10_000_000),
-      invoiceNo: z.string().max(40).optional(), photoUrl: z.string().url().optional(),
+      invoiceNo: z.string().max(40).optional(), photoUrl: z.string().url().optional(), photoUrls: z.array(z.string().url().max(500)).max(3).optional(),
       items: z.array(z.object({ productId: z.number().int().positive(), qty: z.number().int().min(1).max(10_000) })).max(30).optional(),
     }), body), key);
   }

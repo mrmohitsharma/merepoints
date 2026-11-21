@@ -7,6 +7,7 @@ import '../../core/points_math.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/products.dart';
+import 'dues_card.dart';
 import 'history_screen.dart';
 import 'product_detail_screen.dart';
 import 'shop_profile_screen.dart';
@@ -74,6 +75,7 @@ class ShopCardScreen extends StatelessWidget {
                 ),
               ]),
             ),
+            DuesCard(shopId: shopId, shopName: '${shop['name']}'),
             if (products != null) _ShopProducts(redeem: (products['redeem'] as List).cast<Map<String, dynamic>>(), earn: (products['earn'] as List).cast<Map<String, dynamic>>(), reload: reload),
             SectionTitle('History here', trailing: TextButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => HistoryScreen(shopId: shopId, title: '${shop['name']}'))), child: const Text('See all'))),
             for (final e in history.take(10)) HistoryRow(e: e, showShop: false),

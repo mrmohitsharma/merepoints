@@ -1,13 +1,17 @@
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 
 import 'api.dart';
 
 /// Pick a photo (camera or gallery), ask the API for an upload slot, PUT the bytes, return the public URL.
 /// Photos are resized on the phone so they stay under the 2 MB limit on slow networks.
-Future<String?> pickAndUploadPhoto(BuildContext context, ApiClient api, {required String purpose, double maxWidth = 1200}) async {
+Future<String?> pickAndUploadPhoto(BuildContext context, ApiClient api, {required String purpose, double maxWidth = 1200, int maxBytes = 2 * 1024 * 1024, bool shrink = false}) async {
   final source = await showModalBottomSheet<ImageSource>(
     context: context,
     showDragHandle: true,
@@ -28,10 +32,15 @@ Future<String?> pickAndUploadPhoto(BuildContext context, ApiClient api, {require
         : 'Could not open the gallery. Allow Photos access in phone Settings.');
   }
   if (file == null) return null;
-  final bytes = await file.readAsBytes();
+  var bytes = await file.readAsBytes();
   final name = file.name.toLowerCase();
-  final type = name.endsWith('.png') ? 'image/png' : name.endsWith('.webp') ? 'image/webp' : 'image/jpeg';
-  if (bytes.length > 2 * 1024 * 1024) throw ApiException(400, 'FILE_TOO_BIG', 'Photo must be under 2 MB. Try another photo.');
+  var type = name.endsWith('.png') ? 'image/png' : name.endsWith('.webp') ? 'image/webp' : 'image/jpeg';
+  if (shrink && bytes.length > maxBytes) {
+    // Compress on the phone so slow networks and storage stay light.
+    bytes = await compute(shrinkToJpeg, (bytes, maxBytes));
+    type = 'image/jpeg';
+  }
+  if (bytes.length > maxBytes) throw ApiException(400, 'FILE_TOO_BIG', 'Photo must be under ${maxBytes >= 1024 * 1024 ? '${maxBytes ~/ (1024 * 1024)} MB' : '${maxBytes ~/ 1024} KB'}. Try another photo.');
 
   final slot = await api.post('uploads', {'purpose': purpose, 'contentType': type, 'size': bytes.length}) as Map<String, dynamic>;
   final headers = (slot['headers'] as Map).map((k, v) => MapEntry('$k', '$v'));
@@ -49,4 +58,23 @@ Future<String?> pickAndUploadPhoto(BuildContext context, ApiClient api, {require
   var url = '${slot['url']}';
   if (local >= 0 && url.contains('/files/')) url = '$kApiUrl${url.substring(url.indexOf('/files/'))}';
   return url;
+}
+
+/// Re-encodes a photo as JPEG, stepping quality and size down until it fits [args.$2] bytes. Runs in an isolate.
+Uint8List shrinkToJpeg((Uint8List, int) args) {
+  final (bytes, limit) = args;
+  final decoded = img.decodeImage(bytes);
+  if (decoded == null) return bytes;
+  final upright = img.bakeOrientation(decoded);
+  Uint8List out = bytes;
+  for (final side in const [1600, 1400, 1200, 1000, 800, 640]) {
+    final img.Image scaled = upright.width >= upright.height
+        ? (upright.width > side ? img.copyResize(upright, width: side) : upright)
+        : (upright.height > side ? img.copyResize(upright, height: side) : upright);
+    for (final q in const [80, 70, 60, 50, 40]) {
+      out = Uint8List.fromList(img.encodeJpg(scaled, quality: q));
+      if (out.length <= limit) return out;
+    }
+  }
+  return out;
 }

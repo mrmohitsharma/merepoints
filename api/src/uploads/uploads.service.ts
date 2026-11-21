@@ -10,6 +10,8 @@ import { safeEqual } from '../common/util';
 
 export const UPLOAD_TYPES: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 export const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
+/** Bill photos are compressed on the phone; the server holds the line at 500 KB. */
+export const MAX_BILL_PHOTO_BYTES = 500 * 1024;
 // Signed into the S3 URL, so the app must send the same header or S3 answers 403 SignatureDoesNotMatch.
 const CACHE_CONTROL = 'public, max-age=31536000, immutable';
 export type UploadPurpose = 'product' | 'ad' | 'logo' | 'bill';
@@ -28,7 +30,8 @@ export class UploadsService {
   async createSlot(owner: string, purpose: UploadPurpose, contentType: string, size: number) {
     const ext = UPLOAD_TYPES[contentType];
     if (!ext) throw E.bad('BAD_FILE_TYPE', 'Use a JPG, PNG or WebP photo');
-    if (!(size > 0) || size > MAX_UPLOAD_BYTES) throw E.bad('FILE_TOO_BIG', 'Photo must be under 2 MB');
+    const max = purpose === 'bill' ? MAX_BILL_PHOTO_BYTES : MAX_UPLOAD_BYTES;
+    if (!(size > 0) || size > max) throw E.bad('FILE_TOO_BIG', purpose === 'bill' ? 'Bill photo must be under 500 KB' : 'Photo must be under 2 MB');
     const day = new Date().toISOString().slice(0, 10);
     const key = `${purpose}/${day}/${owner}-${randomBytes(9).toString('base64url')}.${ext}`;
     if (this.s3) {

@@ -18,6 +18,7 @@ export const AudienceFilters = z.object({
   canTakeGift: z.boolean().optional(),
   spend: z.enum(['top_spenders', 'new_customers']).optional(),
   mobile: z.string().max(15).optional(),
+  customerId: z.number().int().positive().optional(), // used by due reminders
 }).strict().refine((f) => !(f.visitedWithinDays && f.notVisitedDays), { message: 'Pick either "visited in last" or "not visited in", not both' });
 export type Audience = z.infer<typeof AudienceFilters>;
 
@@ -55,6 +56,7 @@ export class NotificationsService {
     if (f.spend === 'top_spenders') where.push(`w.customer_id IN (SELECT customer_id FROM (SELECT customer_id, ntile(5) OVER (ORDER BY purchase_paise DESC) AS t
         FROM wallets WHERE shop_id = w.shop_id AND NOT blocked AND purchase_paise > 0) x WHERE x.t = 1)`);
     if (f.spend === 'new_customers') where.push(`w.first_visit_at >= now() - interval '30 days'`);
+    if (f.customerId) where.push(`w.customer_id = ${p(f.customerId)}::bigint`);
     if (f.mobile) where.push(`u.mobile = ${p(normalizeMobile(f.mobile))}`);
     const from = `FROM wallets w JOIN customers c ON c.user_id = w.customer_id JOIN users u ON u.id = w.customer_id
       WHERE w.shop_id = $1 AND NOT w.blocked AND u.deleted_at IS NULL ${where.map((x) => `AND ${x}`).join(' ')}`;
@@ -71,15 +73,15 @@ export class NotificationsService {
   }
 
   // ------------------------------------------------------------ create + send
-  async create(shopId: number, userId: number, input: z.infer<typeof NotificationInput>) {
+  async create(shopId: number, userId: number, input: z.infer<typeof NotificationInput>, opts: { skipLimit?: boolean } = {}) {
     const when = input.scheduledAt ? new Date(input.scheduledAt) : null;
     const later = !!when && when.getTime() > Date.now() + 60_000;
     if (later && when!.getTime() > Date.now() + 30 * 86_400_000) throw E.bad('BAD_DATES', 'You can schedule up to 30 days ahead');
 
     const today = await this.db.one(
-      `SELECT count(*)::int AS n FROM notifications WHERE shop_id = $1 AND status <> 'cancelled'
+      `SELECT count(*)::int AS n FROM notifications WHERE shop_id = $1 AND status <> 'cancelled' AND title NOT LIKE 'Payment reminder%'
           AND (created_at AT TIME ZONE $2)::date = (now() AT TIME ZONE $2)::date`, [shopId, config.timezone]);
-    if (today!.n >= config.notificationsPerDay) throw E.forbidden('DAILY_LIMIT', `You can send ${config.notificationsPerDay} notifications a day. Try again tomorrow.`);
+    if (!opts.skipLimit && today!.n >= config.notificationsPerDay) throw E.forbidden('DAILY_LIMIT', `You can send ${config.notificationsPerDay} notifications a day. Try again tomorrow.`);
 
     const { count } = await this.preview(shopId, input.filters);
     if (!count) throw E.bad('NO_RECIPIENTS', 'No customers match these filters');

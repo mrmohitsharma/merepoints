@@ -13,7 +13,7 @@ import { ShopService } from '../shop/shop.service';
 import { bumpStats, IST_DAY_START, lockWallet, writeLedger } from './ledger';
 import { MilestoneService } from '../customer/milestone.service';
 
-export interface EarnBillInput { customerId: number; amountRupees: number; invoiceNo?: string; photoUrl?: string; items?: { productId: number; qty: number }[] }
+export interface EarnBillInput { customerId: number; amountRupees: number; invoiceNo?: string; photoUrl?: string; photoUrls?: string[]; items?: { productId: number; qty: number }[] }
 export interface EarnManualInput { customerId: number; points: number; reason: string; remarks?: string; invoiceNo?: string }
 
 @Injectable()
@@ -103,9 +103,9 @@ export class PointsService {
       if (w.blocked) throw E.forbidden('CUSTOMER_BLOCKED', 'This customer is blocked at your shop');
 
       const bill = (await c.query(
-        `INSERT INTO bills (shop_id, customer_id, invoice_no, amount_paise, photo_url, config_id, offer_id, base_points, points, created_by, reward_bps, bonus_points)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
-        [shop.id, input.customerId, invoiceNo, amountPaise, input.photoUrl ?? null, cfg.id, offer?.id ?? null, base, points, staffId, bps, bonus.bonus],
+        `INSERT INTO bills (shop_id, customer_id, invoice_no, amount_paise, photo_url, photo_urls, config_id, offer_id, base_points, points, created_by, reward_bps, bonus_points)
+         VALUES ($1,$2,$3,$4,$5,$13,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
+        [shop.id, input.customerId, invoiceNo, amountPaise, (input.photoUrls ?? (input.photoUrl ? [input.photoUrl] : []))[0] ?? null, cfg.id, offer?.id ?? null, base, points, staffId, bps, bonus.bonus, input.photoUrls ?? (input.photoUrl ? [input.photoUrl] : [])],
       )).rows[0];
       for (const l of bonus.lines) {
         await c.query('INSERT INTO bill_items (bill_id, product_id, qty, bonus_each) VALUES ($1,$2,$3,$4)', [bill.id, l.productId, l.qty, l.each]);

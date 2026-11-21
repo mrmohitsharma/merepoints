@@ -8,6 +8,8 @@ import '../../core/points_math.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/bill_photos.dart';
+import 'dues_tab.dart';
 import 'points_added_screen.dart';
 
 /// Counter step 2: bill amount → points worked out live (shop % × live offer, capped).
@@ -20,7 +22,8 @@ class AddPointsScreen extends StatefulWidget {
 }
 
 class _AddPointsScreenState extends State<AddPointsScreen> {
-  int _mode = 0; // 0 bill, 1 manual
+  int _mode = 0; // 0 bill, 1 manual, 2 dues (the tab labels shift when the staff member cannot add manual points)
+  List<String> _billPhotos = [];
   final _amount = TextEditingController();
   final _invoice = TextEditingController();
   final _manualPts = TextEditingController();
@@ -86,6 +89,7 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
         'customerId': customerId,
         'amountRupees': amt,
         if (_invoice.text.trim().isNotEmpty) 'invoiceNo': _invoice.text.trim(),
+        if (_billPhotos.isNotEmpty) 'photoUrls': _billPhotos,
         if (_bonus > 0) 'items': [for (final e in _qty.entries.where((e) => e.value > 0)) {'productId': e.key, 'qty': e.value}],
       }, _idemKey) as Map<String, dynamic>;
     } else {
@@ -115,7 +119,11 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
       body: ListView(padding: const EdgeInsets.all(16), children: [
         _CustomerBar(customer: c, balance: asNum(at['balance']).toInt()),
         const SizedBox(height: 14),
-        if (_canManual) Segmented(labels: const ['From bill', 'Manual points'], index: _mode, onChanged: (i) => setState(() => _mode = i)),
+        Segmented(
+          labels: ['From bill', if (_canManual) 'Manual', 'Dues'],
+          index: _canManual ? _mode : (_mode == 2 ? 1 : 0),
+          onChanged: (i) => setState(() => _mode = _canManual ? i : (i == 1 ? 2 : 0)),
+        ),
         const SizedBox(height: 18),
         if (_mode == 0) ...[
           const Text('Bill amount', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF3C4856))),
@@ -155,6 +163,8 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
                 ]),
               ]),
             ),
+          const SizedBox(height: 16),
+          BillPhotosField(urls: _billPhotos, onChanged: (u) => setState(() => _billPhotos = u)),
           if (_bonusProducts.isNotEmpty) ...[
             const SizedBox(height: 16),
             Row(children: [
@@ -176,6 +186,8 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
           const SizedBox(height: 10),
           if (_cfg != null)
             InfoNote('Minimum bill ${rupees(asNum(_cfg!['minBillRupees']))}${_cfg!['maxPointsPerBill'] != null ? ' · Max ${pts(asNum(_cfg!['maxPointsPerBill']))} points per bill' : ''} · Same invoice no. can\'t be used twice'),
+        ] else if (_mode == 2) ...[
+          DuesTab(customer: c),
         ] else ...[
           const Text('Points to add', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF3C4856))),
           const SizedBox(height: 6),
@@ -204,7 +216,7 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
           ),
         ],
       ]),
-      bottomNavigationBar: BottomAction(
+      bottomNavigationBar: _mode == 2 ? null : BottomAction(
         child: BusyButton(
           label: _mode == 0 ? (pv == null ? 'Add points' : 'Add ${pts(pv.points + _bonus)} points') : 'Add ${_manualPts.text.isEmpty ? '' : '${_manualPts.text} '}points',
           onPressed: _submit,

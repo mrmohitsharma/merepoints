@@ -98,6 +98,7 @@ export const BILLING: Record<string, { label: string; tone: 'ok' | 'bad' | 'mute
   active: { label: 'Active', tone: 'ok' },
   grace: { label: 'Payment due', tone: 'amber' },
   read_only: { label: 'Expired', tone: 'bad' },
+  free: { label: 'Free', tone: 'muted' },
 };
 
 /** Audit log actions in plain words. */

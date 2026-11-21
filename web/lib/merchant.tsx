@@ -13,8 +13,9 @@ export type Shop = {
   gst_number: string | null; logo_url: string | null; brands_note: string | null; sms_balance: number; lat: number; lng: number;
   categories: string[] | null; opening_hours: Record<string, string> | null;
   me: { role: 'owner' | 'staff'; canAddPoints: boolean; canRedeem: boolean; canManual: boolean };
-  billing: 'trial' | 'active' | 'grace' | 'read_only';
+  billing: 'trial' | 'active' | 'grace' | 'read_only' | 'free';
   loyalty: Loyalty;
+  entitlements: { planCode: string; planName: string; fellBack: boolean; features: string[]; limits: Record<string, number | null> };
 };
 export type MerchantCtx = {
   shop: Shop;
@@ -22,6 +23,8 @@ export type MerchantCtx = {
   shops: { id: number; name: string; role: string; status: string }[];
   isOwner: boolean;
   readOnly: boolean;
+  /** true when the shop's package includes this feature */
+  has: (feature: string) => boolean;
   refresh: () => Promise<void>;
   switchShop: (id: number) => void;
 };

@@ -40,7 +40,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { href: '/admin/disputes/', label: 'Disputes & payouts', icon: AlertTriangle, badge: counts.disputes, roles: ['owner', 'ops', 'support'] },
     { href: '/admin/customers/', label: 'Customers', icon: Users, roles: ['owner', 'ops', 'support'] },
     { href: '/admin/payments/', label: 'Payments', icon: CreditCard, roles: ['owner', 'ops'] },
-    { href: '/admin/plans/', label: 'Plans & SMS packs', icon: Package, roles: ['owner', 'ops'] },
+    { href: '/admin/plans/', label: 'Packages & prices', icon: Package, roles: ['owner', 'ops'] },
     { href: '/admin/milestones/', label: 'Milestones', icon: Award, roles: ['owner', 'ops', 'support'] },
     { href: '/admin/ads/', label: 'Home ads', icon: Megaphone, badge: counts.adsReview, roles: ['owner', 'ops', 'support'] },
     { href: '/admin/categories/', label: 'Categories', icon: Tags, roles: ['owner', 'ops', 'support'] },

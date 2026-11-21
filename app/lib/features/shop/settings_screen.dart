@@ -13,6 +13,7 @@ import '../auth/language_screen.dart';
 import '../auth/shop_signup_screen.dart';
 import 'notifications_screen.dart';
 import 'offers_screen.dart';
+import 'packages_screen.dart';
 import 'products_screen.dart';
 import 'rules_history_screen.dart';
 import 'staff_screen.dart';
@@ -50,6 +51,7 @@ class SettingsScreen extends StatelessWidget {
           item(Icons.inventory_2_outlined, 'Products', 'Gifts to redeem, and products that earn bonus points', const ShopProductsScreen()),
           item(Icons.local_offer_outlined, 'Offers', 'Bonus points offers, e.g. 2x for painters this week', const OffersScreen()),
           item(Icons.notifications_active_outlined, 'Notifications', 'Send offers to your customers and see who opened', const ShopNotificationsScreen()),
+          item(Icons.workspace_premium_outlined, 'Package & billing', 'Your package, what it includes, limits and upgrades', const PackagesScreen()),
           item(Icons.badge_outlined, 'Staff & roles', 'Who can add points, redeem, give manual points', const StaffScreen()),
         ],
         const SectionTitle('Account'),

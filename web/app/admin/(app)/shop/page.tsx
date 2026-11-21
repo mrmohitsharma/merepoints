@@ -7,6 +7,7 @@ import { ArrowLeft, CalendarPlus, CheckCircle2, MessageSquare, PauseCircle, XCir
 import { Async, Badge, Button, Card, Field, Input, MapBadge, MapPin, Modal, Note, PageHeader, Select, Stat, Table, Textarea, useAsync, useToast } from '@/components/ui';
 import { adminApi } from '@/lib/api';
 import { useAdmin } from '@/lib/admin';
+import { limitText, LIMIT_LABELS, Limits } from '@/lib/packages';
 import { actionLabel, BILLING, date, dateTime, inr, inrShort, mobile, pts, SHOP_STATUS } from '@/lib/format';
 
 type Action = null | { kind: 'approved' | 'rejected' | 'suspended' } | { kind: 'sms' } | { kind: 'extend' };
@@ -20,6 +21,16 @@ function Detail() {
   const [act, setAct] = useState<Action>(null);
   const [f, setF] = useState<any>({});
   const [busy, setBusy] = useState(false);
+  const [ov, setOv] = useState<any | null>(null);
+  async function saveOverrides() {
+    setBusy(true);
+    try {
+      const limits: Record<string, number> = {};
+      for (const k of Object.keys(ov.limits)) if (String(ov.limits[k]).trim() !== '') limits[k] = Number(ov.limits[k]);
+      await adminApi.put(`admin/shops/${id}/overrides`, { featuresAdd: ov.featuresAdd, featuresRemove: ov.featuresRemove, limits });
+      toast.ok('Saved'); setOv(null); d.reload(true);
+    } catch (e) { toast.error(e); } finally { setBusy(false); }
+  }
 
   const open = (a: Action, init: any = {}) => { setF(init); setAct(a); };
   async function run() {
@@ -118,13 +129,17 @@ function Detail() {
                   <p className={`mt-2 text-sm ${s.gps_accuracy_m > 50 ? 'text-[#9A6400]' : 'text-muted'}`}>GPS accuracy at sign-up: ±{Math.round(s.gps_accuracy_m)} m</p>
                 </Card>
                 {s.status === 'approved' && (
-                  <Card title="Plan">
+                  <Card title="Package" action={can('owner', 'ops') && <Button size="sm" variant="secondary" onClick={() => setOv({ featuresAdd: billing.overrides.featuresAdd ?? [], featuresRemove: billing.overrides.featuresRemove ?? [], limits: { notifications: billing.overrides.limits?.notifications ?? '', products: billing.overrides.limits?.products ?? '', offers: billing.overrides.limits?.offers ?? '', ads: billing.overrides.limits?.ads ?? '' }, cat: billing.featureCatalogue, has: billing.features })}>Customise</Button>}>
                     <dl className="space-y-2 text-sm">
-                      <div className="flex justify-between"><dt className="text-muted">Plan</dt><dd className="font-medium">{billing.plan?.name ?? '—'} ({inr(billing.plan?.priceRupees)}/mo)</dd></div>
+                      <div className="flex justify-between"><dt className="text-muted">Package</dt><dd className="font-medium">{billing.plan?.name ?? '—'}{billing.plan?.fellBack ? ' (expired, on free)' : ''}</dd></div>
                       <div className="flex justify-between"><dt className="text-muted">Trial ends</dt><dd>{date(billing.trialEndsAt)}</dd></div>
                       <div className="flex justify-between"><dt className="text-muted">Paid till</dt><dd>{date(billing.periodEnd)}</dd></div>
-                      <div className="flex justify-between"><dt className="text-muted">SMS balance</dt><dd>{pts(billing.smsBalance)}</dd></div>
-                      <div className="flex justify-between"><dt className="text-muted">Staff</dt><dd>{billing.staffUsed} / {billing.plan?.maxStaff}</dd></div>
+                      <div className="flex justify-between"><dt className="text-muted">Notifications this month</dt><dd>{billing.usage.notifications} / {limitText(billing.limits.notifications)}{billing.extras.notifications ? ` +${billing.extras.notifications}` : ''}</dd></div>
+                      <div className="flex justify-between"><dt className="text-muted">Products</dt><dd>{billing.usage.products} / {limitText(billing.limits.products)}{billing.extras.products ? ` +${billing.extras.products}` : ''}</dd></div>
+                      <div className="flex justify-between"><dt className="text-muted">Offers running</dt><dd>{billing.usage.offers} / {limitText(billing.limits.offers)}{billing.extras.offers ? ` +${billing.extras.offers}` : ''}</dd></div>
+                      <div className="flex justify-between"><dt className="text-muted">Ads this month</dt><dd>{billing.usage.ads} / {limitText(billing.limits.ads)}{billing.extras.ads ? ` +${billing.extras.ads}` : ''}</dd></div>
+                      <div className="flex justify-between"><dt className="text-muted">SMS balance</dt><dd>{pts(billing.smsBalance ?? 0)}</dd></div>
+                      {(Object.keys(billing.overrides).length > 0) && <div className="rounded bg-amber-50 px-2 py-1 text-xs text-[#7A5000]">This shop has custom settings on top of its package.</div>}
                     </dl>
                     {billing.payments.length > 0 && (
                       <div className="mt-4 border-t border-line pt-3">
@@ -139,6 +154,40 @@ function Detail() {
               </div>
             </div>
 
+            <Modal open={!!ov} onClose={() => setOv(null)} title="Customise this shop’s package" footer={<><Button variant="secondary" onClick={() => setOv(null)}>Cancel</Button><Button busy={busy} onClick={saveOverrides}>Save</Button></>}>
+              {ov && (
+                <div className="space-y-4">
+                  <Note>Changes only this shop, on top of its package. Clear everything to go back to the package.</Note>
+                  <div>
+                    <div className="mb-2 text-sm font-semibold">Features</div>
+                    <div className="space-y-1">
+                      {ov.cat.map((f: any) => {
+                        const v = ov.featuresAdd.includes(f.key) ? 'on' : ov.featuresRemove.includes(f.key) ? 'off' : 'default';
+                        const set = (x: string) => setOv({ ...ov, featuresAdd: x === 'on' ? [...ov.featuresAdd.filter((k: string) => k !== f.key), f.key] : ov.featuresAdd.filter((k: string) => k !== f.key), featuresRemove: x === 'off' ? [...ov.featuresRemove.filter((k: string) => k !== f.key), f.key] : ov.featuresRemove.filter((k: string) => k !== f.key) });
+                        return (
+                          <div key={f.key} className="flex items-center justify-between gap-3 text-sm">
+                            <span>{f.label}</span>
+                            <select className="h-8 rounded border border-line bg-white px-2 text-sm" value={v} onChange={(e) => set(e.target.value)}>
+                              <option value="default">Package default</option><option value="on">Always on</option><option value="off">Always off</option>
+                            </select>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="mb-2 text-sm font-semibold">Limits <span className="font-normal text-muted">(blank = package default)</span></div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {(Object.keys(LIMIT_LABELS) as (keyof Limits)[]).map((k) => (
+                        <Field key={k} label={`${LIMIT_LABELS[k].label} ${LIMIT_LABELS[k].per}`}>
+                          <Input inputMode="numeric" value={ov.limits[k]} onChange={(e) => setOv({ ...ov, limits: { ...ov.limits, [k]: e.target.value.replace(/\D/g, '') } })} />
+                        </Field>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </Modal>
             <Modal open={!!act} onClose={() => setAct(null)}
               title={act?.kind === 'approved' ? 'Approve shop' : act?.kind === 'rejected' ? 'Reject registration' : act?.kind === 'suspended' ? 'Suspend shop' : act?.kind === 'sms' ? 'Add SMS credits' : 'Extend plan'}
               footer={<><Button variant="secondary" onClick={() => setAct(null)}>Cancel</Button>

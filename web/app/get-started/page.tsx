@@ -11,14 +11,14 @@ export default function GetStarted() {
     [Smartphone, 'Install the Mere Points app', 'On the phone you keep at the counter. Log in with your mobile number (OTP) and choose “I own a shop”.'],
     [MapPin, 'Register from inside your shop', 'Shop name, categories, address and your points %. We take the location from your phone, so do this at the shop.'],
     [ShieldCheck, 'We approve it, usually within a day', 'Our team checks the shop details and location. You get an SMS when you are live.'],
-    [Store, 'Add your first bill', `Your 30-day free trial starts on approval. Use the app at the counter, or the web dashboard on your PC.`],
+    [Store, 'Add your first bill', `Your shop starts on the free Basic package the day it is approved. Use the app at the counter, or the web dashboard on your PC.`],
   ] as const;
   return (
     <div className="bg-cream jaali">
       <SiteHeader />
       <main className="mx-auto max-w-4xl px-5 py-14">
         <h1 className="text-4xl font-black tracking-tight text-soil">Apni dukaan register karein</h1>
-        <p className="mt-3 text-lg text-muted">Lagbhag 10 minute. Free trial ke liye card ki zaroorat nahi.</p>
+        <p className="mt-3 text-lg text-muted">Lagbhag 10 minute. Basic package hamesha free hai, card ki zaroorat nahi.</p>
         <ol className="mt-10 space-y-4">
           {steps.map(([Icon, t, s], i) => (
             <li key={t} className="flex gap-5 rounded-2xl bg-white p-6 ring-1 ring-forest/10">

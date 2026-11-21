@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/api.dart';
 import '../core/format.dart';
 import '../core/theme.dart';
+import '../features/shop/packages_screen.dart';
 
 /// Loads data with a spinner, friendly error + retry, and pull-to-refresh.
 class AsyncView<T> extends StatefulWidget {
@@ -59,18 +60,30 @@ class ErrorRetry extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(error is ApiException && (error as ApiException).isNetwork ? Icons.wifi_off_rounded : Icons.error_outline, size: 48, color: VP.muted),
+            Icon(error is ApiException && (error as ApiException).isNetwork ? Icons.wifi_off_rounded : _isLocked(error) ? Icons.lock_outline : Icons.error_outline, size: 48, color: VP.muted),
             const SizedBox(height: 12),
             Text('$error', textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
             const SizedBox(height: 16),
-            OutlinedButton(onPressed: onRetry, child: const Text('Try again')),
+            if (_isLocked(error))
+              FilledButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PackagesScreen())), child: const Text('See packages'))
+            else
+              OutlinedButton(onPressed: onRetry, child: const Text('Try again')),
           ]),
         ),
       );
 }
 
+bool _isLocked(Object e) => e is ApiException && e.code == 'FEATURE_LOCKED';
+
 void showError(BuildContext context, Object e) {
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'), backgroundColor: VP.red));
+  // Package limits and locked features: offer the way out instead of only an error.
+  final upsell = e is ApiException && (e.code == 'FEATURE_LOCKED' || e.code == 'LIMIT_REACHED');
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+    content: Text('$e'),
+    backgroundColor: VP.red,
+    duration: upsell ? const Duration(seconds: 8) : const Duration(seconds: 4),
+    action: upsell ? SnackBarAction(label: 'See packages', textColor: Colors.white, onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PackagesScreen()))) : null,
+  ));
 }
 
 void showOk(BuildContext context, String msg) {

@@ -88,7 +88,7 @@ export class AdminService {
     ]);
     return {
       shop: s, loyalty: cfg ? ShopService.presentConfig(cfg) : null, totals, staff,
-      billing: { ...billing, plans: undefined, smsPacks: undefined }, activity: recent,
+      billing: { ...billing, plans: undefined, addonPacks: undefined, featureCatalogue: billing.featureCatalogue, overrides: (await this.db.one('SELECT overrides FROM shop_subscriptions WHERE shop_id = $1', [id]))?.overrides ?? {} }, activity: recent,
       nearbyShops: nearby.filter((n) => Number(n.meters) <= 150),
     };
   }

@@ -5,10 +5,10 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { LogOut, Menu } from 'lucide-react';
+import { Lock, LogOut, Menu } from 'lucide-react';
 import { cx } from './ui';
 
-export type NavItem = { href: string; label: string; icon: LucideIcon; badge?: number | null };
+export type NavItem = { href: string; label: string; icon: LucideIcon; badge?: number | null; locked?: boolean };
 
 export function Logo({ sub }: { sub?: string }) {
   return (
@@ -45,6 +45,7 @@ export function Shell({ sub, nav, top, footer, onLogout, children }: {
             <i.icon size={18} />
             <span className="flex-1">{i.label}</span>
             {!!i.badge && <span className="rounded-full bg-amber px-1.5 text-xs font-bold text-navy">{i.badge}</span>}
+            {i.locked && <Lock size={14} className="text-white/50" aria-label="Not in your package" />}
           </Link>
         ))}
       </nav>

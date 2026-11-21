@@ -32,6 +32,9 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
   Map<String, dynamic>? _cfg;
   Map<String, dynamic>? _offer;
   bool _canManual = false;
+  List<String> _features = const [];
+  // Until the shop profile has loaded nothing is shown locked.
+  bool _has(String f) => _cfg == null || _features.contains(f);
   // Earn-more products the shop gives bonus points for; qty ticked at the counter.
   List<Map<String, dynamic>> _bonusProducts = [];
   final _qty = <int, int>{};
@@ -52,6 +55,7 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
       setState(() {
         _cfg = shop['loyalty'] as Map<String, dynamic>;
         _canManual = (shop['me'] as Map<String, dynamic>)['canManual'] == true;
+        _features = ((shop['entitlements'] as Map<String, dynamic>?)?['features'] as List?)?.cast<String>() ?? const [];
         _offer = (r[1] as List).cast<Map<String, dynamic>>().where((o) {
           final ps = o['professions'] as List?;
           return o['status'] == 'live' && (ps == null || ps.contains(prof));
@@ -164,7 +168,7 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
               ]),
             ),
           const SizedBox(height: 16),
-          BillPhotosField(urls: _billPhotos, onChanged: (u) => setState(() => _billPhotos = u)),
+          if (_has('bill_photos')) BillPhotosField(urls: _billPhotos, onChanged: (u) => setState(() => _billPhotos = u)),
           if (_bonusProducts.isNotEmpty) ...[
             const SizedBox(height: 16),
             Row(children: [
@@ -187,7 +191,10 @@ class _AddPointsScreenState extends State<AddPointsScreen> {
           if (_cfg != null)
             InfoNote('Minimum bill ${rupees(asNum(_cfg!['minBillRupees']))}${_cfg!['maxPointsPerBill'] != null ? ' · Max ${pts(asNum(_cfg!['maxPointsPerBill']))} points per bill' : ''} · Same invoice no. can\'t be used twice'),
         ] else if (_mode == 2) ...[
-          DuesTab(customer: c),
+          if (_has('dues_book'))
+            DuesTab(customer: c)
+          else
+            const InfoNote('The dues book is not in your package. Upgrade in Settings › Package & billing to keep customer dues and reminders.', icon: Icons.lock_outline, color: VP.blue),
         ] else ...[
           const Text('Points to add', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF3C4856))),
           const SizedBox(height: 6),

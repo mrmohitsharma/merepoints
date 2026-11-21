@@ -44,6 +44,38 @@ void _android() {
     }
     return s;
   });
+  // Older plugins (e.g. geocoding_android) compile against an old Android API while newer AndroidX libraries need 34+.
+  // Raise it for every plugin module so the release build passes the AAR metadata check.
+  final kts = File('android/build.gradle.kts');
+  final groovy = File('android/build.gradle');
+  if (kts.existsSync()) {
+    final t = kts.readAsStringSync();
+    if (!t.contains('MerePointsCompileSdk')) {
+      kts.writeAsStringSync('''$t
+
+// MerePointsCompileSdk: raise old plugin modules to a compileSdk the AndroidX libraries accept.
+subprojects {
+    if (name != "app") {
+        val raise: Project.() -> Unit = { extensions.findByName("android")?.withGroovyBuilder { "compileSdkVersion"(36) } }
+        if (state.executed) raise() else afterEvaluate { raise() }
+    }
+}
+''');
+    }
+  } else if (groovy.existsSync()) {
+    final t = groovy.readAsStringSync();
+    if (!t.contains('MerePointsCompileSdk')) {
+      groovy.writeAsStringSync('''$t
+
+// MerePointsCompileSdk: raise old plugin modules to a compileSdk the AndroidX libraries accept.
+subprojects { p ->
+    if (p.name != 'app') {
+        p.afterEvaluate { if (p.hasProperty('android')) { p.android { compileSdkVersion 36 } } }
+    }
+}
+''');
+    }
+  }
   // Debug builds talk to a local API over plain http (10.0.2.2). Release builds stay https-only.
   _patch('android/app/src/debug/AndroidManifest.xml', (s) {
     if (s.contains('usesCleartextTraffic')) return s;

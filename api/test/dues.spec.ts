@@ -124,7 +124,7 @@ describe('dues book', () => {
 });
 
 describe('bill photos', () => {
-  test('a bill keeps up to 3 photos; the 4th is refused; uploads over 500 KB are refused', async () => {
+  test('a bill keeps up to 3 photos; the 4th is refused; bill uploads of any normal size are accepted', async () => {
     const A = await makeShop(admin);
     const c = await makeCustomer();
     const u = (n: number) => Array.from({ length: n }, (_, i) => `https://x.test/bill${i}.jpg`);
@@ -136,6 +136,8 @@ describe('bill photos', () => {
     expect(row.photo_url).toBe(u(1)[0]);
     const slot = (size: number) => http().post('/v1/uploads').set(auth(A.owner.token)).send({ purpose: 'bill', contentType: 'image/jpeg', size });
     await slot(480 * 1024).expect(201);
-    expect((await slot(600 * 1024).expect(400)).body.message).toMatch(/500 KB/);
+    await slot(500 * 1024).expect(201);
+    await slot(1500 * 1024).expect(201); // no 500 KB rule on the server; the app shrinks, the server never refuses for it
+    await slot(11 * 1024 * 1024).expect(400); // only an abuse ceiling
   });
 });

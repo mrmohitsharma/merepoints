@@ -40,7 +40,8 @@ Future<String?> pickAndUploadPhoto(BuildContext context, ApiClient api, {require
     bytes = await compute(shrinkToJpeg, (bytes, maxBytes));
     type = 'image/jpeg';
   }
-  if (bytes.length > maxBytes) throw ApiException(400, 'FILE_TOO_BIG', 'Photo must be under ${maxBytes >= 1024 * 1024 ? '${maxBytes ~/ (1024 * 1024)} MB' : '${maxBytes ~/ 1024} KB'}. Try another photo.');
+  // With shrink on, the size target is best effort: never block the upload because of it.
+  if (!shrink && bytes.length > maxBytes) throw ApiException(400, 'FILE_TOO_BIG', 'Photo must be under ${maxBytes >= 1024 * 1024 ? '${maxBytes ~/ (1024 * 1024)} MB' : '${maxBytes ~/ 1024} KB'}. Try another photo.');
 
   final slot = await api.post('uploads', {'purpose': purpose, 'contentType': type, 'size': bytes.length}) as Map<String, dynamic>;
   final headers = (slot['headers'] as Map).map((k, v) => MapEntry('$k', '$v'));

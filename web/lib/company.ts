@@ -5,10 +5,10 @@
  */
 export const COMPANY = {
   brand: 'Mere Points',
-  legalName: '[Company legal name]',
-  address: '[Registered office address]',
+  legalName: 'S. R Fairway Ventures',
+  address: 'Gurgaon, Haryana, India',
   supportEmail: 'support@icca.co.in',
-  phone: null as string | null,
+  phone: '+919446603568' as string | null,
   grievanceOfficer: '[Grievance Officer name]',
   jurisdiction: 'Gurugram, Haryana',
   domain: 'merepoints.in',
@@ -18,4 +18,4 @@ export const COMPANY = {
 };
 
 /** True while any required legal detail is still a placeholder. */
-export const companyIncomplete = [COMPANY.legalName, COMPANY.address, COMPANY.grievanceOfficer].some((v) => v.startsWith('['));
+export const companyIncomplete = [COMPANY.grievanceOfficer].some((v) => v.startsWith('['));

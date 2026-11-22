@@ -84,9 +84,10 @@ export class BillingService {
       featureCatalogue: FEATURES,
       plans: plans.map((p) => BillingService.presentPlan(p)),
       addonPacks: addons.map((a) => ({ code: a.code, kind: a.kind, quantity: a.quantity, priceRupees: rupees(a.price_paise) })),
-      payments: payments.map((p) => ({ receipt: p.receipt, kind: p.kind, planName: p.plan_name, amountRupees: rupees(p.amount_paise), paidAt: p.paid_at, periodEnd: p.period_end })),
+      payments: payments.map((p) => ({ soldBy: config.seller.name, receipt: p.receipt, kind: p.kind, planName: p.plan_name, amountRupees: rupees(p.amount_paise), paidAt: p.paid_at, periodEnd: p.period_end })),
       cashfreeEnv: config.cashfree.env,
       testMode: this.testMode,
+      seller: config.seller,
     };
   }
 
@@ -244,7 +245,7 @@ export class BillingService {
       `SELECT p.public_id, p.kind, p.amount_paise, p.period_end, p.sms_added, p.ad_id, s.sms_balance
          FROM payments p JOIN shops s ON s.id = p.shop_id WHERE p.id = $1`, [id],
     )).rows[0];
-    return { paid: true, receipt: r.public_id, kind: r.kind, amountRupees: rupees(r.amount_paise), periodEnd: r.period_end, smsAdded: r.sms_added, smsBalance: r.sms_balance,
+    return { paid: true, receipt: r.public_id, kind: r.kind, amountRupees: rupees(r.amount_paise), periodEnd: r.period_end, smsAdded: r.sms_added, smsBalance: r.sms_balance, soldBy: config.seller.name,
       ...(r.ad_id ? { adId: Number(r.ad_id) } : {}) };
   }
 

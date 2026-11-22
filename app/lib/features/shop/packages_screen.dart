@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/company.dart';
+import '../../core/pay.dart';
 import '../../core/api.dart';
 import '../../core/format.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
-
-/// Where owners pay for a package or an extra pack (Cashfree checkout runs in the shop portal).
-const String kPortalBillingUrl = String.fromEnvironment('WEB_URL', defaultValue: 'https://merepoints.in') + '/merchant/billing/';
 
 const _limitLabels = {
   'notifications': ('Notifications', 'per month'),
@@ -20,8 +19,38 @@ const _limitLabels = {
 String _limit(dynamic n) => n == null ? 'Unlimited' : '$n';
 
 /// The shop's package, what it includes, how much of each limit is used, and how to upgrade or buy extras.
-class PackagesScreen extends StatelessWidget {
+class PackagesScreen extends StatefulWidget {
   const PackagesScreen({super.key});
+  @override
+  State<PackagesScreen> createState() => _PackagesScreenState();
+}
+
+class _PackagesScreenState extends State<PackagesScreen> {
+  int _version = 0; // bump to reload after a payment
+  bool _paying = false;
+
+  Future<void> _buy(Map<String, dynamic> body, String what) async {
+    if (_paying) return;
+    setState(() => _paying = true);
+    try {
+      final r = await payInApp(context, body);
+      if (!mounted || r == null) return;
+      setState(() => _version++);
+      await showDialog<void>(
+        context: context,
+        builder: (c) => AlertDialog(
+          icon: const Icon(Icons.check_circle, color: VP.green, size: 48),
+          title: const Text('Payment received'),
+          content: Text('$what is now on.\nReceipt ${r['receipt']} · ${rupees(asNum(r['amountRupees']))}\nSold by $kCompanyName, $kCompanyCity'),
+          actions: [FilledButton(onPressed: () => Navigator.pop(c), child: const Text('Done'))],
+        ),
+      );
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _paying = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +58,7 @@ class PackagesScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Package & billing')),
       body: AsyncView<Map<String, dynamic>>(
+        key: ValueKey(_version),
         load: () async => await api.sget('billing') as Map<String, dynamic>,
         builder: (context, d, reload) {
           final plan = d['plan'] as Map<String, dynamic>;
@@ -87,6 +117,21 @@ class PackagesScreen extends StatelessWidget {
                           : '${rupees(asNum(p['priceRupees']))} / month${p['yearlyPriceRupees'] != null ? ' · ${rupees(asNum(p['yearlyPriceRupees']))} / year' : ''}',
                       style: const TextStyle(fontWeight: FontWeight.w700, color: VP.blue),
                     ),
+                    if (p['free'] != true)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Wrap(spacing: 8, runSpacing: 8, children: [
+                          FilledButton(
+                            onPressed: _paying ? null : () => _buy({'kind': 'plan', 'planCode': p['code'], 'period': 'monthly'}, '${p['name']} package'),
+                            child: Text('Buy monthly · ${rupees(asNum(p['priceRupees']))}'),
+                          ),
+                          if (p['yearlyPriceRupees'] != null)
+                            OutlinedButton(
+                              onPressed: _paying ? null : () => _buy({'kind': 'plan', 'planCode': p['code'], 'period': 'yearly'}, '${p['name']} package'),
+                              child: Text('Buy yearly · ${rupees(asNum(p['yearlyPriceRupees']))}'),
+                            ),
+                        ]),
+                      ),
                     const SizedBox(height: 8),
                     for (final f in cat)
                       Padding(
@@ -101,21 +146,49 @@ class PackagesScreen extends StatelessWidget {
                   ]),
                 ),
               ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(children: [
-                FilledButton.icon(
-                  onPressed: () => launchUrl(Uri.parse(kPortalBillingUrl), mode: LaunchMode.externalApplication),
-                  icon: const Icon(Icons.open_in_new),
-                  label: const Text('Upgrade or buy extras'),
+            if ((d['addonPacks'] as List).isNotEmpty) ...[
+              const SectionTitle('Extra packs (valid till your package period ends)'),
+              for (final a in (d['addonPacks'] as List).cast<Map<String, dynamic>>())
+                WhiteCard(
+                  child: Row(children: [
+                    Expanded(child: Text(_packLabel(a), style: const TextStyle(fontWeight: FontWeight.w600))),
+                    FilledButton(
+                      onPressed: _paying ? null : () => _buy({'kind': 'addon', 'packCode': a['code']}, _packLabel(a)),
+                      child: Text(rupees(asNum(a['priceRupees']))),
+                    ),
+                  ]),
                 ),
-                const SizedBox(height: 8),
-                const InfoNote('Payment opens in the Mere Points shop portal in your browser. Your package switches on in the app as soon as you have paid.', icon: Icons.info_outline, color: VP.blue),
+            ],
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Column(children: [
+                InfoNote('Pay safely with UPI, card or netbanking. Your package switches on as soon as the payment is done. Sold by $kCompanyName, $kCompanyCity.', icon: Icons.lock_outline, color: VP.blue),
+                TextButton.icon(
+                  onPressed: () => launchUrl(Uri.parse('tel:$kSupportPhone')),
+                  icon: const Icon(Icons.call),
+                  label: const Text('Need help? Call $kSupportPhone'),
+                ),
               ]),
             ),
           ]);
         },
       ),
     );
+  }
+}
+
+String _packLabel(Map<String, dynamic> a) {
+  final q = a['quantity'];
+  switch ('${a['kind']}') {
+    case 'notifications':
+      return '$q notifications';
+    case 'products':
+      return '$q more products';
+    case 'offers':
+      return '$q more running offers';
+    case 'ads':
+      return '$q home-screen ad${q == 1 ? '' : 's'}';
+    default:
+      return '${a['kind']} × $q';
   }
 }

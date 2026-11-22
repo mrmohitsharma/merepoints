@@ -29,6 +29,7 @@ dependencies:
   image: ^4.2.0                 # shrink bill photos under 500 KB on the phone (pure Dart)
   firebase_core: ^3.8.1         # phone push (set FIREBASE_* with --dart-define; push stays off without them)
   firebase_messaging: ^15.1.6
+  flutter_cashfree_pg_sdk: ^2.4.0+52   # in-app Cashfree checkout (UPI apps, cards, netbanking)
 
 dev_dependencies:
   flutter_test:

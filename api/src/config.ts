@@ -30,6 +30,8 @@ export const config = {
     /** 'production' (api.cashfree.com) or 'sandbox' (sandbox.cashfree.com) */
     env: (process.env.CASHFREE_ENV ?? 'production') as 'production' | 'sandbox',
   },
+  /** Who sells packages and extra packs: shown on receipts and in the app. */
+  seller: { name: process.env.SELLER_NAME ?? 'S. R Fairway Ventures', city: process.env.SELLER_CITY ?? 'Gurgaon', phone: process.env.SELLER_PHONE ?? '+919446603568' },
   /** This API's public address, used in links it hands out (local uploads). */
   publicApiUrl: process.env.PUBLIC_API_URL ?? `http://localhost:${process.env.PORT ?? 3000}/v1`,
   uploads: {

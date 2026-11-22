@@ -67,7 +67,7 @@ export function SiteFooter() {
       <div className="border-t border-white/10">
         <div className="mx-auto flex max-w-6xl flex-wrap justify-between gap-3 px-5 py-5 text-sm text-white/55">
           <span>© {year} {COMPANY.legalName}. {COMPANY.brand} is a brand of {COMPANY.legalName}.</span>
-          <a href={`mailto:${COMPANY.supportEmail}`} className="hover:text-white">{COMPANY.supportEmail}</a>
+          <span>{COMPANY.address}{COMPANY.phone ? <> · <a href={`tel:${COMPANY.phone}`} className="hover:text-white">{COMPANY.phone.replace('+91', '+91 ')}</a></> : null} · <a href={`mailto:${COMPANY.supportEmail}`} className="hover:text-white">{COMPANY.supportEmail}</a></span>
         </div>
       </div>
     </footer>

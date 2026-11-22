@@ -166,6 +166,11 @@ export class ShopController {
   }
 
   // ---------------------------------------------------------------- redeem
+  @ShopRoute({ perm: 'canRedeem' }) @Get('redemptions/preview')
+  previewRedemption(@CurrentShop() s: ShopCtx, @Query('customerId') customerId: string, @Query('points') points: string) {
+    return this.redeem.preview(s, Number(customerId), Number(points));
+  }
+
   @ShopRoute({ perm: 'canRedeem' }) @Post('redemptions')
   createRedemption(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Body() body: unknown) {
     return this.redeem.create(s, u.id, parse(z.object({

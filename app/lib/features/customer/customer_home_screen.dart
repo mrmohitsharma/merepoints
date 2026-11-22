@@ -257,7 +257,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> with WidgetsBin
                       ),
                       Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                         Text(pts(asNum(c['points'])), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: VP.blue)),
-                        Text('1 pt = ${rupees(asNum(c['pointValueRupees']))}', style: const TextStyle(fontSize: 11, color: VP.muted)),
+                        Text(c['mixedRates'] == true ? 'worth ${rupees(asNum(c['valueRupees']))}' : '1 pt = ${rupees(asNum(c['pointValueRupees']))}', style: const TextStyle(fontSize: 11, color: VP.muted)),
                       ]),
                     ]),
                   ),

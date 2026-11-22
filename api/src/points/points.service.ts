@@ -10,7 +10,7 @@ import { readQr } from '../customer/qr';
 import { SMS, SmsService } from '../sms/sms.service';
 import { ShopCtx } from '../common/auth';
 import { ShopService } from '../shop/shop.service';
-import { bumpStats, IST_DAY_START, lockWallet, writeLedger } from './ledger';
+import { bumpStats, IST_DAY_START, lockWallet, mixedRatesSql, worthPaiseSql, writeLedger } from './ledger';
 import { MilestoneService } from '../customer/milestone.service';
 import { requireFeature } from '../billing/entitlements';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -34,7 +34,8 @@ export class PointsService {
 
     const r = await this.db.one(
       `SELECT u.id, u.name, u.mobile, c.profession, c.upi_id, c.upi_verified_name, c.lifetime_points, c.lifetime_value_paise,
-              w.balance_points, w.held_points, w.earned_points, w.redeemed_points, w.visits, w.blocked
+              w.balance_points, w.held_points, w.earned_points, w.redeemed_points, w.visits, w.blocked,
+              ${worthPaiseSql('w')} AS worth_paise, ${mixedRatesSql('w')} AS mixed_rates
          FROM customers c JOIN users u ON u.id = c.user_id
          LEFT JOIN wallets w ON w.customer_id = c.user_id AND w.shop_id = $2
         WHERE c.user_id = $1`, [customerId, shopId],
@@ -46,7 +47,7 @@ export class PointsService {
       customer: {
         id: r.id, name: r.name, mobile: r.mobile, profession: r.profession, upiId: r.upi_id, upiVerifiedName: r.upi_verified_name,
         level: ms?.name ?? null,
-        atThisShop: { balance: r.balance_points ?? 0, held: r.held_points ?? 0, earned: r.earned_points ?? 0, redeemed: r.redeemed_points ?? 0, visits: r.visits ?? 0, firstVisit: r.balance_points == null, blocked: !!r.blocked },
+        atThisShop: { worthRupees: Number(r.worth_paise ?? 0) / 100, mixedRates: !!r.mixed_rates, balance: r.balance_points ?? 0, held: r.held_points ?? 0, earned: r.earned_points ?? 0, redeemed: r.redeemed_points ?? 0, visits: r.visits ?? 0, firstVisit: r.balance_points == null, blocked: !!r.blocked },
       },
     };
   }

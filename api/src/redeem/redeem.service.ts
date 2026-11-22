@@ -7,7 +7,7 @@ import { config } from '../config';
 import { ShopCtx } from '../common/auth';
 import { ShopService } from '../shop/shop.service';
 import { SMS, SmsService } from '../sms/sms.service';
-import { bumpStats, consumeLots, lockWallet, writeLedger } from '../points/ledger';
+import { bumpStats, consumeLots, lockWallet, quoteLots, writeLedger } from '../points/ledger';
 
 /**
  * Redemption state machine
@@ -24,6 +24,15 @@ import { bumpStats, consumeLots, lockWallet, writeLedger } from '../points/ledge
 @Injectable()
 export class RedeemService {
   constructor(private db: Db, private shops: ShopService, private sms: SmsService) {}
+
+  /** "If you redeem N points now, you pay ₹X." Same batch order as the real payout, changes nothing. */
+  async preview(shop: ShopCtx, customerId: number, points: number) {
+    const w = (await this.db.pool.query('SELECT balance_points FROM wallets WHERE customer_id = $1 AND shop_id = $2', [customerId, shop.id])).rows[0];
+    if (!w) throw E.notFound('Customer at your shop');
+    const q = await quoteLots(this.db.pool, customerId, shop.id, points);
+    if (q.short > 0) throw E.bad('NOT_ENOUGH_POINTS', `Customer has ${Number(w.balance_points)} points here`);
+    return { points, valueRupees: q.valuePaise / 100, mixedRates: q.mixedRates };
+  }
 
   private otpHash(id: number, code: string) { return hmac(config.otpSecret, `redeem:${id}:${code}`); }
 

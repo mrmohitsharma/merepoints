@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Db } from '../db/db.service';
 import { toCsv } from '../common/util';
 import { E } from '../common/errors';
+import { mixedRatesSql, worthPaiseSql } from '../points/ledger';
 
 /**
  * Shop dashboard + reports. Totals come from shop_daily_stats (one tiny row per day),
@@ -114,7 +115,8 @@ export class ReportsService {
     params.push(Math.min(q.limit ?? 50, 200), q.offset ?? 0);
     return this.db.many(
       `SELECT u.id, u.name, u.mobile, c.profession, w.balance_points, w.held_points, w.earned_points, w.redeemed_points,
-              w.purchase_paise / 100.0 AS purchase_rupees, w.visits, w.last_visit_at, w.blocked
+              w.purchase_paise / 100.0 AS purchase_rupees, w.visits, w.last_visit_at, w.blocked,
+              ${worthPaiseSql('w')} / 100.0 AS worth_rupees
          FROM wallets w JOIN users u ON u.id = w.customer_id JOIN customers c ON c.user_id = w.customer_id
         WHERE ${where}
         ORDER BY ${q.sort === 'recent' ? 'w.last_visit_at' : 'w.balance_points'} DESC
@@ -124,7 +126,8 @@ export class ReportsService {
 
   async customerDetail(shopId: number, customerId: number) {
     const w = await this.db.one(
-      `SELECT u.id, u.name, u.mobile, c.profession, c.city, c.upi_id, w.*, w.purchase_paise / 100.0 AS purchase_rupees
+      `SELECT u.id, u.name, u.mobile, c.profession, c.city, c.upi_id, w.*, w.purchase_paise / 100.0 AS purchase_rupees,
+              ${worthPaiseSql('w')} / 100.0 AS worth_rupees, ${mixedRatesSql('w')} AS mixed_rates
          FROM wallets w JOIN users u ON u.id = w.customer_id JOIN customers c ON c.user_id = w.customer_id
         WHERE w.shop_id = $1 AND w.customer_id = $2`, [shopId, customerId],
     );

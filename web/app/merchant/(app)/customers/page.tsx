@@ -45,7 +45,7 @@ export default function Customers() {
               { key: 'n', label: 'Customer', render: (r) => <div><div className="font-medium">{r.name}</div><div className="text-xs text-muted">{mobile(r.mobile)}</div></div> },
               { key: 'w', label: 'Work', render: (r) => PROFESSIONS[r.profession] },
               { key: 'b', label: 'Points', align: 'right', render: (r) => <span className="font-semibold">{pts(r.balance_points)}</span> },
-              { key: 'v', label: 'Worth', align: 'right', render: (r) => inr(r.balance_points * shop.loyalty.pointValueRupees) },
+              { key: 'v', label: 'Worth', align: 'right', render: (r) => inr(r.worth_rupees ?? r.balance_points * shop.loyalty.pointValueRupees) },
               { key: 'p', label: 'Purchases', align: 'right', render: (r) => inr(r.purchase_rupees) },
               { key: 'x', label: 'Visits', align: 'right', render: (r) => pts(r.visits) },
               { key: 'l', label: 'Last visit', render: (r) => <span className="text-muted">{ago(r.last_visit_at)}</span> },

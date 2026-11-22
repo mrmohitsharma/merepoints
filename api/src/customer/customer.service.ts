@@ -5,6 +5,7 @@ import { Db } from '../db/db.service';
 import { E } from '../common/errors';
 import { MilestoneService } from './milestone.service';
 import { makeQr } from './qr';
+import { mixedRatesSql, worthPaiseSql } from '../points/ledger';
 import { RedeemService } from '../redeem/redeem.service';
 
 const LANGS = ['en', 'hi', 'ta', 'bn', 'kn', 'ml', 'gu', 'pa'] as const;
@@ -75,6 +76,7 @@ export class CustomerService {
     const cards = await this.db.many(
       `SELECT w.shop_id, s.name, s.logo_url, w.balance_points, w.held_points, w.earned_points, w.redeemed_points, w.last_visit_at,
               lc.point_value_paise, lc.min_redeem_points, lc.reward_bps,
+              ${worthPaiseSql('w')} AS worth_paise, ${mixedRatesSql('w')} AS mixed_rates,
               o.name AS offer_name, o.multiplier_x100, upper(o.period) AS offer_ends,
               exp.points AS expiring_points, exp.first_at AS expiring_at,
               (SELECT min(g.points_cost) FROM products g WHERE g.shop_id = w.shop_id AND g.kind = 'redeem' AND g.active AND g.visible AND g.stock > 0 AND g.points_cost <= w.balance_points) AS cheapest_affordable_gift
@@ -99,7 +101,7 @@ export class CustomerService {
         shopId: c.shop_id, name: c.name, logoUrl: c.logo_url,
         points: Number(c.balance_points), onHold: Number(c.held_points),
         pointValueRupees: c.point_value_paise / 100,
-        valueRupees: (Number(c.balance_points) * c.point_value_paise) / 100,
+        valueRupees: Number(c.worth_paise) / 100, mixedRates: !!c.mixed_rates,
         canRedeem: Number(c.balance_points) >= c.min_redeem_points,
         toRedeem: Math.max(0, c.min_redeem_points - Number(c.balance_points)),
         expiring: c.expiring_points ? { points: c.expiring_points, on: c.expiring_at } : null,
@@ -112,7 +114,8 @@ export class CustomerService {
   async shopCard(userId: number, shopId: number) {
     await this.requireCustomer(userId);
     const w = await this.db.one(
-      `SELECT w.*, s.name, s.logo_url, s.address_line, s.city, lc.point_value_paise, lc.reward_bps, lc.reward_slabs, lc.min_redeem_points
+      `SELECT w.*, s.name, s.logo_url, s.address_line, s.city, lc.point_value_paise, lc.reward_bps, lc.reward_slabs, lc.min_redeem_points,
+              ${worthPaiseSql('w')} AS worth_paise, ${mixedRatesSql('w')} AS mixed_rates
          FROM wallets w JOIN shops s ON s.id = w.shop_id JOIN loyalty_configs lc ON lc.id = s.current_config_id
         WHERE w.customer_id = $1 AND w.shop_id = $2`, [userId, shopId],
     );
@@ -124,7 +127,7 @@ export class CustomerService {
     return {
       shop: { id: shopId, name: w.name, logoUrl: w.logo_url, address: `${w.address_line}, ${w.city}`, rewardPercent: w.reward_bps / 100, rewardSlabs: presentSlabs(w.reward_slabs), pointValueRupees: w.point_value_paise / 100 },
       points: Number(w.balance_points), onHold: Number(w.held_points), earned: Number(w.earned_points), redeemed: Number(w.redeemed_points),
-      valueRupees: (Number(w.balance_points) * w.point_value_paise) / 100,
+      valueRupees: Number(w.worth_paise) / 100, mixedRates: !!w.mixed_rates,
       minRedeem: w.min_redeem_points, canRedeem: Number(w.balance_points) >= w.min_redeem_points,
       gifts: gifts.map((g) => ({ ...g, canTake: g.in_stock && Number(w.balance_points) >= g.points_cost, needMore: Math.max(0, g.points_cost - Number(w.balance_points)) })),
       products: { redeem: products.filter((p) => p.kind === 'redeem'), earn: products.filter((p) => p.kind === 'earn') },

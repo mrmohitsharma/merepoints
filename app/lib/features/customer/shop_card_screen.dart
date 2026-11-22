@@ -42,7 +42,7 @@ class ShopCardScreen extends StatelessWidget {
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text('${shop['name']}', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
-                      Text('${rateText(shop)} back · 1 point = ${rupees(asNum(shop['pointValueRupees']))} here', style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                      Text('${rateText(shop)} back · ${d['mixedRates'] == true ? 'new points: ' : ''}1 point = ${rupees(asNum(shop['pointValueRupees']))} here', style: const TextStyle(color: Colors.white70, fontSize: 14)),
                     ]),
                   ),
                 ]),
@@ -52,6 +52,7 @@ class ShopCardScreen extends StatelessWidget {
                   TextSpan(text: pts(asNum(d['points'])), style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.w800)),
                   TextSpan(text: '  = ${rupees(asNum(d['valueRupees']))}', style: const TextStyle(color: Color(0xFFF2C14E), fontSize: 17, fontWeight: FontWeight.w600)),
                 ])),
+                if (d['mixedRates'] == true) const Text('Some points were earned at an older value, so each pays at its own value.', style: TextStyle(color: Colors.white70, fontSize: 12)),
                 if (asNum(d['onHold']) > 0) Text('${pts(asNum(d['onHold']))} on hold for a redemption', style: const TextStyle(color: Color(0xFFF2C14E))),
                 const SizedBox(height: 12),
                 Row(children: [

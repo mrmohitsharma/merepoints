@@ -13,7 +13,7 @@ import { QrScanDialog } from '@/components/qr-scan';
 
 type Customer = {
   id: number; name: string; mobile: string; profession: string; upiId: string | null; level: string | null;
-  atThisShop: { balance: number; held: number; earned: number; redeemed: number; visits: number; firstVisit: boolean; blocked: boolean };
+  atThisShop: { worthRupees?: number; mixedRates?: boolean; balance: number; held: number; earned: number; redeemed: number; visits: number; firstVisit: boolean; blocked: boolean };
 };
 type Offer = { id: number; name: string; multiplier: number; status: string; professions: string[] | null; ends_at: string };
 
@@ -97,7 +97,7 @@ export default function Counter() {
             <div className="mt-5 rounded-xl bg-navy p-4 text-white">
               <div className="text-xs uppercase text-white/60">Points at {shop.name}</div>
               <div className="tabular mt-1 text-3xl font-bold">{pts(cust.atThisShop.balance)}</div>
-              <div className="text-sm text-white/70">worth {inr(cust.atThisShop.balance * shop.loyalty.pointValueRupees, true)}{cust.atThisShop.held ? ` · ${pts(cust.atThisShop.held)} on hold` : ''}</div>
+              <div className="text-sm text-white/70">worth {inr(cust.atThisShop.worthRupees ?? cust.atThisShop.balance * shop.loyalty.pointValueRupees, true)}{cust.atThisShop.held ? ` · ${pts(cust.atThisShop.held)} on hold` : ''}</div>
             </div>
             <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
               <div><dt className="text-muted">Visits</dt><dd className="font-semibold">{cust.atThisShop.firstVisit ? 'First visit' : pts(cust.atThisShop.visits)}</dd></div>
@@ -298,6 +298,16 @@ function Redeem({ cust, onDone }: { cust: Customer; onDone: () => void }) {
   const p = Number(points) || 0;
   const pErr = p > bal ? `Only ${pts(bal)} points available` : p < L.minRedeemPoints ? `Minimum ${pts(L.minRedeemPoints)} points` : L.maxRedeemPoints && p > L.maxRedeemPoints ? `Maximum ${pts(L.maxRedeemPoints)} per redemption` : '';
 
+  // Exact payout from the server: each batch of points pays at the value it was earned at.
+  const [quote, setQuote] = useState<{ points: number; valueRupees: number; mixedRates: boolean } | null>(null);
+  useEffect(() => {
+    if (method === 'gift' || !p || p > bal) { setQuote(null); return; }
+    const t = setTimeout(() => {
+      merchantApi.get(`shop/redemptions/preview?customerId=${cust.id}&points=${p}`).then(setQuote).catch(() => setQuote(null));
+    }, 350);
+    return () => clearTimeout(t);
+  }, [p, bal, method, cust.id]);
+
   async function start() {
     setBusy(true);
     try {
@@ -322,8 +332,8 @@ function Redeem({ cust, onDone }: { cust: Customer; onDone: () => void }) {
             <Input inputMode="numeric" value={points} onChange={(e) => setPoints(e.target.value.replace(/\D/g, ''))} className="h-12 text-lg font-semibold" />
           </Field>
           <div className="flex items-center justify-between rounded-xl bg-amber-50 px-4 py-3">
-            <span className="text-sm text-[#7A5000]">{pts(p)} points × {inr(L.pointValueRupees, true)}</span>
-            <span className="tabular text-2xl font-bold text-[#7A5000]">Pay {inr(p * L.pointValueRupees, true)}</span>
+            <span className="text-sm text-[#7A5000]">{quote && quote.points === p ? (quote.mixedRates ? `${pts(p)} points, older ones at their own value` : `${pts(p)} points × ${inr(quote.valueRupees / (p || 1), true)}`) : `${pts(p)} points`}</span>
+            <span className="tabular text-2xl font-bold text-[#7A5000]">Pay {quote && quote.points === p ? inr(quote.valueRupees, true) : '…'}</span>
           </div>
           <Button size="lg" className="w-full" busy={busy} disabled={!p || !!pErr} onClick={start}>Continue to pay</Button>
         </>

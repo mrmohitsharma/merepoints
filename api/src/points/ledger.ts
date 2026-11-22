@@ -64,6 +64,36 @@ export async function bumpStats(c: PoolClient, shopId: number, d: Partial<Record
   );
 }
 
+/**
+ * SQL pieces: what a wallet's points are really worth, from each batch's own point value (the value on the day they were earned).
+ * `w` is the wallet alias. Matches what consumeLots pays out.
+ */
+export const worthPaiseSql = (w = 'w') =>
+  `(SELECT COALESCE(sum(l.points_remaining::bigint * l.point_value_paise), 0)::bigint FROM point_lots l
+     WHERE l.customer_id = ${w}.customer_id AND l.shop_id = ${w}.shop_id AND l.points_remaining > 0 AND (l.expires_at IS NULL OR l.expires_at > now()))`;
+export const mixedRatesSql = (w = 'w') =>
+  `(SELECT count(DISTINCT l.point_value_paise) > 1 FROM point_lots l
+     WHERE l.customer_id = ${w}.customer_id AND l.shop_id = ${w}.shop_id AND l.points_remaining > 0 AND (l.expires_at IS NULL OR l.expires_at > now()))`;
+
+/** What redeeming `points` would pay right now, using the same batch order as consumeLots (no changes made). */
+export async function quoteLots(q: Pick<PoolClient, 'query'>, customerId: number, shopId: number, points: number) {
+  const lots = (await q.query<{ points_remaining: number; point_value_paise: number }>(
+    `SELECT points_remaining, point_value_paise FROM point_lots
+      WHERE customer_id = $1 AND shop_id = $2 AND points_remaining > 0 AND (expires_at IS NULL OR expires_at > now())
+      ORDER BY expires_at NULLS LAST, id`, [customerId, shopId],
+  )).rows;
+  let left = points, valuePaise = 0;
+  const rates = new Set<number>();
+  for (const l of lots) {
+    if (!left) break;
+    const t = Math.min(left, l.points_remaining);
+    valuePaise += t * l.point_value_paise;
+    rates.add(l.point_value_paise);
+    left -= t;
+  }
+  return { valuePaise, short: left, mixedRates: rates.size > 1 };
+}
+
 /** Take `points` from the customer's open lots at this shop, oldest expiry first. */
 export async function consumeLots(c: PoolClient, customerId: number, shopId: number, points: number) {
   const lots = (await c.query<{ id: number; points_remaining: number; point_value_paise: number }>(

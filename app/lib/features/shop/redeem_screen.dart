@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -24,6 +26,39 @@ class _RedeemScreenState extends State<RedeemScreen> {
   int? _giftId;
 
   late final Future<List<dynamic>> _data = Future.wait([context.read<ApiClient>().sget(''), context.read<ApiClient>().sget('gifts')]);
+
+  // Exact payout from the server: each batch of points pays at the rate it was earned at.
+  Timer? _quoteTimer;
+  int _quotedPoints = 0;
+  double? _quoteValue;
+  bool _quoteMixed = false;
+
+  @override
+  void dispose() {
+    _quoteTimer?.cancel();
+    _points.dispose();
+    super.dispose();
+  }
+
+  void _pointsChanged() {
+    setState(() {});
+    _quoteTimer?.cancel();
+    final p = int.tryParse(_points.text) ?? 0;
+    if (p <= 0 || p > _balance) return;
+    _quoteTimer = Timer(const Duration(milliseconds: 350), () async {
+      try {
+        final r = await context.read<ApiClient>().sget('redemptions/preview', query: {'customerId': '${widget.customer['id']}', 'points': '$p'}) as Map<String, dynamic>;
+        if (!mounted) return;
+        setState(() {
+          _quotedPoints = p;
+          _quoteValue = asNum(r['valueRupees']).toDouble();
+          _quoteMixed = r['mixedRates'] == true;
+        });
+      } catch (_) {
+        // Keep the estimate; the exact amount is also shown on the next step.
+      }
+    });
+  }
 
   int get _balance => asNum((widget.customer['atThisShop'] as Map)['balance']).toInt();
 
@@ -60,6 +95,7 @@ class _RedeemScreenState extends State<RedeemScreen> {
           final pv = asNum(cfg['pointValueRupees']);
           final p = int.tryParse(_points.text) ?? 0;
           final canRedeem = _balance >= minR;
+          final exact = _quoteValue != null && _quotedPoints == p && p > 0;
           return Column(children: [
             Expanded(
               child: ListView(padding: const EdgeInsets.all(16), children: [
@@ -73,7 +109,7 @@ class _RedeemScreenState extends State<RedeemScreen> {
                       Expanded(child: Text('${c['name'] ?? 'Customer'}', style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700))),
                     ]),
                     const SizedBox(height: 10),
-                    const Text('Available at your shop', style: TextStyle(color: Colors.white70)),
+                    Text('Available at your shop · worth ${rupees(asNum((c['atThisShop'] as Map)['worthRupees']))}', style: const TextStyle(color: Colors.white70)),
                     Row(children: [
                       Text(pts(_balance), style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w800)),
                       const Spacer(),
@@ -96,12 +132,15 @@ class _RedeemScreenState extends State<RedeemScreen> {
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800),
-                    onChanged: (_) => setState(() {}),
+                    onChanged: (_) => _pointsChanged(),
                   ),
                   const SizedBox(height: 8),
                   Wrap(spacing: 8, children: [
                     for (final q in {minR, if (maxR >= 1000 && minR < 1000) 1000, maxR}.where((q) => q >= minR && q <= _balance))
-                      ActionChip(label: Text(q == maxR ? 'Max ${pts(q)}' : pts(q)), onPressed: () => setState(() => _points.text = '$q')),
+                      ActionChip(label: Text(q == maxR ? 'Max ${pts(q)}' : pts(q)), onPressed: () {
+                        _points.text = '$q';
+                        _pointsChanged();
+                      }),
                   ]),
                   const SizedBox(height: 14),
                   Container(
@@ -109,10 +148,16 @@ class _RedeemScreenState extends State<RedeemScreen> {
                     decoration: BoxDecoration(color: VP.amberSoft, borderRadius: BorderRadius.circular(16)),
                     child: Row(children: [
                       const Expanded(child: Text('You pay the customer', style: TextStyle(fontSize: 16, color: Color(0xFF5C3A00)))),
-                      Text('≈ ${rupees(p * pv)}', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
+                      Text(exact ? rupees(_quoteValue!) : '≈ ${rupees(p * pv)}', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
                     ]),
                   ),
-                  const Padding(padding: EdgeInsets.only(top: 4), child: Text('Exact amount shown next (older points keep their value)', style: TextStyle(fontSize: 12, color: VP.muted))),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      exact && _quoteMixed ? 'Older points were earned at a different value, so they pay at that value.' : exact ? 'Exact amount to pay.' : 'Calculating the exact amount…',
+                      style: const TextStyle(fontSize: 12, color: VP.muted),
+                    ),
+                  ),
                   const SizedBox(height: 14),
                   const Text('Pay by', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF3C4856))),
                   const SizedBox(height: 8),

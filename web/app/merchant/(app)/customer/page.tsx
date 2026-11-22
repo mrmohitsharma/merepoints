@@ -37,7 +37,7 @@ function Detail() {
               actions={isOwner && <Button variant={c.blocked ? 'secondary' : 'danger'} busy={busy} onClick={() => toggleBlock(!c.blocked)}><Ban size={16} /> {c.blocked ? 'Unblock' : 'Block'}</Button>}
             />
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-              <Stat label="Points now" value={pts(c.balance_points)} sub={`worth ${inr(c.balance_points * shop.loyalty.pointValueRupees)}`} />
+              <Stat label="Points now" value={pts(c.balance_points)} sub={`worth ${inr(c.worth_rupees ?? c.balance_points * shop.loyalty.pointValueRupees)}${c.mixed_rates ? ' (older points keep their value)' : ''}`} />
               <Stat label="On hold" value={pts(c.held_points)} sub="payout in progress" />
               <Stat label="Earned" value={pts(c.earned_points)} />
               <Stat label="Redeemed" value={pts(c.redeemed_points)} />

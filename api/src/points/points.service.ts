@@ -14,13 +14,14 @@ import { bumpStats, IST_DAY_START, lockWallet, mixedRatesSql, worthPaiseSql, wri
 import { MilestoneService } from '../customer/milestone.service';
 import { requireFeature } from '../billing/entitlements';
 import { NotificationsService } from '../notifications/notifications.service';
+import { LEVEL_NAMES, PerksService } from '../perks/perks.service';
 
 export interface EarnBillInput { customerId: number; amountRupees: number; invoiceNo?: string; photoUrl?: string; photoUrls?: string[]; items?: { productId: number; qty: number }[] }
 export interface EarnManualInput { customerId: number; points: number; reason: string; remarks?: string; invoiceNo?: string }
 
 @Injectable()
 export class PointsService {
-  constructor(private db: Db, private sms: SmsService, private shops: ShopService, private milestones: MilestoneService, private products: ProductsService, private notifications: NotificationsService) {}
+  constructor(private db: Db, private sms: SmsService, private shops: ShopService, private milestones: MilestoneService, private products: ProductsService, private notifications: NotificationsService, private perks: PerksService) {}
 
   // ------------------------------------------------------------------ find customer
   async resolveCustomer(shopId: number, by: { qr?: string; mobile?: string }) {
@@ -94,7 +95,12 @@ export class PointsService {
       )).rows[0] ?? null;
 
       // Points = bill × % (the bill's slab sets the %), then offer multiplier, then the shop's per-bill cap.
-      const bps = rateBpsFor(cfg, amountPaise);
+      let bps = rateBpsFor(cfg, amountPaise);
+      // Shop levels: a customer's level (spend at this shop in the last 12 months) can give a higher % than the normal one.
+      const feat = await this.perks.features(c, shop.id);
+      const levels = feat.levels ? await this.perks.levels(c, shop.id) : [];
+      const level = levels.length ? PerksService.levelFor(levels, await this.perks.spend12m(c, shop.id, input.customerId)).current : null;
+      if (level && level.reward_bps > bps) bps = level.reward_bps;
       const base = basePoints(amountPaise, bps);
       let points = offer ? Math.floor((base * offer.multiplier_x100) / 100) : base;
       const capped = cfg.max_points_per_bill != null && points > cfg.max_points_per_bill;
@@ -123,11 +129,27 @@ export class PointsService {
       if (offer && points > base) await c.query('UPDATE offers SET extra_points = extra_points + $2 WHERE id = $1', [offer.id, points - base]);
       await this.notifyEarn(c, shop.id, cust, total, out.balanceAfter, created);
 
+      // Loyalty goals reached with this bill: bonus points on top, once per goal per period.
+      const goalBonuses: { goalId: number; label: string; points: number }[] = [];
+      let finalBalance = out.balanceAfter;
+      if (feat.goals) {
+        for (const d of await this.perks.dueGoals(c, shop.id, input.customerId)) {
+          const g = await this.credit(c, {
+            shopId: shop.id, customerId: input.customerId, wallet: { balance_points: finalBalance }, points: d.points, pointValuePaise: cfg.point_value_paise,
+            expiryDays: cfg.expiry_days, type: 'earn_manual', prefix: 'MN', createdBy: staffId, reason: `Goal reached: ${d.label}`, remarks: null,
+            purchasePaise: 0, isNewCustomer: false,
+          });
+          finalBalance = g.balanceAfter;
+          goalBonuses.push(d);
+        }
+      }
+
       return {
+        goalBonuses,
         entryId: out.entry.public_id, points: total, billPoints: points, basePoints: base, capped,
         bonusPoints: bonus.bonus, bonusItems: bonus.lines.map((l) => ({ productId: l.productId, name: l.name, qty: l.qty, bonusEach: l.each, bonus: l.qty * l.each })),
-        rate: { rewardPercent: bps / 100, slabbed: !!cfg.reward_slabs, multiplier: offer ? offer.multiplier_x100 / 100 : 1, offerName: offer?.name ?? null },
-        valueRupees: (total * cfg.point_value_paise) / 100, balance: out.balanceAfter, newCustomerAtShop: created,
+        rate: { rewardPercent: bps / 100, levelName: level ? LEVEL_NAMES[level.rank - 1] : null, slabbed: !!cfg.reward_slabs, multiplier: offer ? offer.multiplier_x100 / 100 : 1, offerName: offer?.name ?? null },
+        valueRupees: (total * cfg.point_value_paise) / 100, balance: finalBalance, newCustomerAtShop: created,
         milestoneCrossed: out.milestoneCrossed, createdAt: out.entry.created_at,
       };
     }));
@@ -205,14 +227,19 @@ export class PointsService {
   }
 
   /** After the points are saved: inbox + push "You earned N points at <shop>". Skipped when this is a retry of an earlier request. */
-  private async tellCustomer(shopId: number, staffId: number, customerId: number, r: { points: number; balance: number; replayed?: boolean }) {
+  private async tellCustomer(shopId: number, staffId: number, customerId: number, r: { points: number; balance: number; replayed?: boolean; goalBonuses?: { label: string; points: number }[] }) {
     if (r.replayed) return;
+    const bonusTotal = (r.goalBonuses ?? []).reduce((a, b) => a + b.points, 0);
     const row = (await this.db.pool.query(
       `SELECT s.name AS shop, COALESCE(NULLIF(split_part(u.name, ' ', 1), ''), 'ji') AS first FROM shops s, users u WHERE s.id = $1 AND u.id = $2`, [shopId, customerId])).rows[0];
     if (!row) return;
     const shop = String(row.shop).length > 32 ? String(row.shop).slice(0, 31) + '…' : row.shop;
     await this.notifications.notifyCustomer(shopId, staffId, customerId, `+${r.points} points at ${shop}`,
-      `Namaste ${row.first}, you earned ${r.points} points at ${row.shop}. Your balance there is now ${r.balance} points.`);
+      `Namaste ${row.first}, you earned ${r.points} points at ${row.shop}. Your balance there is now ${r.balance - bonusTotal} points.`);
+    for (const b of r.goalBonuses ?? []) {
+      await this.notifications.notifyCustomer(shopId, staffId, customerId, `Goal reached! +${b.points} bonus points`.slice(0, 60),
+        `Namaste ${row.first}, you reached the goal "${b.label}" at ${row.shop} and got ${b.points} bonus points. Your balance there is now ${r.balance} points.`);
+    }
   }
 
   private async notifyEarn(c: PoolClient, shopId: number, cust: { mobile: string; sms_on_earn: boolean }, points: number, balance: number, firstVisit: boolean) {

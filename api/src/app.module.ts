@@ -16,6 +16,7 @@ import { OffersService } from './offers/offers.service';
 import { ReportsService } from './reports/reports.service';
 import { CustomerService } from './customer/customer.service';
 import { MilestoneService } from './customer/milestone.service';
+import { PerksService } from './perks/perks.service';
 import { CustomerController, DiscoverController, InviteController, PlatformController } from './customer/customer.controller';
 import { AdminService } from './admin/admin.service';
 import { AdminAuthController, AdminController } from './admin/admin.controller';
@@ -44,7 +45,7 @@ import { CustomerDuesController, ShopDuesController } from './dues/dues.controll
   providers: [
     Db, SmsService, AuthService, ShopService, PointsService, RedeemService, OffersService, ReportsService,
     CustomerService, MilestoneService, AdminService, AdminAuthService, BillingService, ExpiryService, SchedulerService,
-    ProductsService, UploadsService, AdsService, NotificationsService, PushService, DuesService,
+    ProductsService, UploadsService, AdsService, NotificationsService, PushService, DuesService, PerksService,
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: AllErrorsFilter },
   ],

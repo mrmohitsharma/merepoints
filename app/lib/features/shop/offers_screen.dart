@@ -8,6 +8,7 @@ import '../../core/format.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import 'notifications_screen.dart';
+import 'perks_section.dart';
 import 'products_screen.dart';
 
 /// Bonus-points offers (one at a time) and the gift catalogue.
@@ -76,6 +77,7 @@ class _OffersScreenState extends State<OffersScreen> {
                   ),
                 ),
               ),
+            const PerksSection(),
             const SizedBox(height: 14),
             WhiteCard(
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ShopProductsScreen())),

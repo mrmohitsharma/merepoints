@@ -9,6 +9,8 @@ export const FEATURES = [
   { key: 'products_gifts', label: 'Gifts & products catalogue', group: 'Rewards' },
   { key: 'offers', label: 'Bonus point offers', group: 'Rewards' },
   { key: 'reward_slabs', label: 'Reward % by bill amount (slabs)', group: 'Rewards' },
+  { key: 'shop_levels', label: 'Shop levels: Silver, Gold, Platinum', group: 'Rewards' },
+  { key: 'loyalty_goals', label: 'Loyalty goals: visits and spend bonus', group: 'Rewards' },
   { key: 'dues_book', label: 'Dues book and payment reminders', group: 'Counter' },
   { key: 'bill_photos', label: 'Bill photos (up to 3)', group: 'Counter' },
   { key: 'customer_block', label: 'Block / unblock customers', group: 'Counter' },

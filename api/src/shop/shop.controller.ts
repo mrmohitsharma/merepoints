@@ -8,6 +8,7 @@ import { parse } from '../common/util';
 import { LoyaltyConfigInput, RegisterShopInput, ShopService } from './shop.service';
 import { PointsService } from '../points/points.service';
 import { RedeemService } from '../redeem/redeem.service';
+import { PerksService } from '../perks/perks.service';
 import { OffersService, Segment } from '../offers/offers.service';
 import { ReportsService } from '../reports/reports.service';
 import { ProductInput, ProductsService } from '../products/products.service';
@@ -51,7 +52,7 @@ export class ShopRegisterController {
 @Controller('shop')
 export class ShopController {
   constructor(
-    private shops: ShopService, private points: PointsService, private redeem: RedeemService,
+    private shops: ShopService, private points: PointsService, private redeem: RedeemService, private perks: PerksService,
     private offers: OffersService, private reports: ReportsService, private productsSvc: ProductsService,
   ) {}
 
@@ -204,6 +205,30 @@ export class ShopController {
   @ShopRoute() @Get('redemptions')
   redemptions(@CurrentShop() s: ShopCtx, @Query('status') status?: string) {
     return this.redeem.listForShop(s.id, status ? status.split(',') : ['held', 'paid', 'disputed']);
+  }
+
+  // ---------------------------------------------------------------- shop levels and loyalty goals (owner, on the Offers screen)
+  @ShopRoute() @Get('perks')
+  perksOverview(@CurrentShop() s: ShopCtx) { return this.perks.overview(s.id); }
+
+  @ShopRoute({ owner: true, writes: true, feature: 'shop_levels' }) @Put('perks/levels')
+  saveLevels(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Body() body: unknown) {
+    const b = parse(z.object({ levels: z.array(z.object({
+      rank: z.number().int().min(1).max(3), minSpendRupees: z.number().min(100).max(100_000_000), rewardPercent: z.number().min(0.01).max(50),
+    })).max(3) }), body);
+    return this.perks.saveLevels(s.id, u.id, b.levels);
+  }
+
+  @ShopRoute({ owner: true, writes: true, feature: 'loyalty_goals' }) @Post('perks/goals')
+  createGoal(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Body() body: unknown) {
+    return this.perks.createGoal(s.id, u.id, parse(z.object({
+      kind: z.enum(['visits', 'spend']), target: z.number().positive(), periodDays: z.number().int().min(7).max(90), bonusPoints: z.number().int().min(1).max(100000),
+    }), body));
+  }
+
+  @ShopRoute({ owner: true, feature: 'loyalty_goals' }) @Post('perks/goals/:id/stop')
+  stopGoal(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Param('id') id: string) {
+    return this.perks.stopGoal(s.id, u.id, Number(id));
   }
 
   // ---------------------------------------------------------------- offers, gifts, SMS (owner)

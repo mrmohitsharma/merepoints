@@ -19,6 +19,7 @@ import 'product_detail_screen.dart';
 import 'my_qr_screen.dart';
 import 'notifications_screen.dart';
 import 'received_sheet.dart';
+import 'rewards_widgets.dart';
 import 'shop_card_screen.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
@@ -234,6 +235,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> with WidgetsBin
                     const Icon(Icons.chevron_right, color: Colors.white),
                   ]),
                 ),
+              RewardsSection(data: h['rewards'] as Map<String, dynamic>?, onBack: () => _load(quiet: true)),
               SectionTitle(context.t('my_shop_cards'), trailing: TextButton(onPressed: widget.onFindShops, child: Text(context.t('find_shops')))),
               if (cards.isEmpty)
                 const Padding(

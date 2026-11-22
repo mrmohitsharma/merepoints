@@ -5,6 +5,7 @@ import { Db } from '../db/db.service';
 import { E } from '../common/errors';
 import { MilestoneService } from './milestone.service';
 import { makeQr } from './qr';
+import { PerksService } from '../perks/perks.service';
 import { mixedRatesSql, worthPaiseSql } from '../points/ledger';
 import { RedeemService } from '../redeem/redeem.service';
 
@@ -12,7 +13,7 @@ const LANGS = ['en', 'hi', 'ta', 'bn', 'kn', 'ml', 'gu', 'pa'] as const;
 
 @Injectable()
 export class CustomerService {
-  constructor(private db: Db, private milestones: MilestoneService, private redeem: RedeemService, private products: ProductsService) {}
+  constructor(private db: Db, private milestones: MilestoneService, private redeem: RedeemService, private products: ProductsService, private perks: PerksService) {}
 
   async register(userId: number, p: {
     name: string; profession?: string; professions?: string[]; city?: string; area?: string; state?: string; pincode?: string;
@@ -97,6 +98,7 @@ export class CustomerService {
       shopsCount: cards.length,
       milestones: await this.milestones.window(cust),
       pending: await this.redeem.pendingForCustomer(userId),
+      rewards: await this.perks.rewards(userId, { limit: 3, offset: 0 }),
       cards: cards.map((c) => ({
         shopId: c.shop_id, name: c.name, logoUrl: c.logo_url,
         points: Number(c.balance_points), onHold: Number(c.held_points),
@@ -132,6 +134,7 @@ export class CustomerService {
       gifts: gifts.map((g) => ({ ...g, canTake: g.in_stock && Number(w.balance_points) >= g.points_cost, needMore: Math.max(0, g.points_cost - Number(w.balance_points)) })),
       products: { redeem: products.filter((p) => p.kind === 'redeem'), earn: products.filter((p) => p.kind === 'earn') },
       history: history.items,
+      perks: await this.perks.perksForShop(shopId, userId),
     };
   }
 
@@ -143,6 +146,9 @@ export class CustomerService {
    * Cheap poll for the open QR screen: points the customer has just received.
    * Without `after` it only returns the latest entry id (the starting line); with it, anything newer.
    */
+  /** "See all": shops in the customer's city offering levels or goals, own shops first. */
+  rewards(userId: number, limit = 20, offset = 0) { return this.perks.rewards(userId, { limit: Math.min(limit, 50), offset }); }
+
   async earned(userId: number, after?: number) {
     if (after === undefined) {
       const r = await this.db.one(`SELECT COALESCE(MAX(id), 0)::bigint AS latest FROM ledger_entries WHERE customer_id = $1`, [userId]);

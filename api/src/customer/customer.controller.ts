@@ -67,6 +67,7 @@ export class CustomerController {
     return { ...home, ads: await this.ads.feedFor(u.id, loc.lat, loc.lng) };
   }
   @Get('qr') qr(@CurrentUser() u: AuthUser) { return this.customers.qr(u.id); }
+  @Get('rewards') rewards(@CurrentUser() u: AuthUser, @Query('limit') limit?: string, @Query('offset') offset?: string) { return this.customers.rewards(u.id, Number(limit) || 20, Number(offset) || 0); }
   @Get('earned') earned(@CurrentUser() u: AuthUser, @Query('after') after?: string) { return this.customers.earned(u.id, after === undefined || after === '' ? undefined : Number(after) || 0); }
 
   @Get('cards/:shopId')

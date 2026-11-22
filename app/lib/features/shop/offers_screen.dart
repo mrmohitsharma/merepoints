@@ -77,7 +77,7 @@ class _OffersScreenState extends State<OffersScreen> {
                   ),
                 ),
               ),
-            const PerksSection(),
+            PerksSection(key: ObjectKey(d)),
             const SizedBox(height: 14),
             WhiteCard(
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ShopProductsScreen())),

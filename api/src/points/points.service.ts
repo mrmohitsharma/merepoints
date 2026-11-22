@@ -127,11 +127,11 @@ export class PointsService {
         type: 'earn_bill', prefix: 'ER', billId: bill.id, createdBy: staffId, purchasePaise: amountPaise, isNewCustomer: created,
       });
       if (offer && points > base) await c.query('UPDATE offers SET extra_points = extra_points + $2 WHERE id = $1', [offer.id, points - base]);
-      await this.notifyEarn(c, shop.id, cust, total, out.balanceAfter, created);
 
       // Loyalty goals reached with this bill: bonus points on top, once per goal per period.
       const goalBonuses: { goalId: number; label: string; points: number }[] = [];
       let finalBalance = out.balanceAfter;
+      let milestoneCrossed = out.milestoneCrossed;
       if (feat.goals) {
         for (const d of await this.perks.dueGoals(c, shop.id, input.customerId)) {
           const g = await this.credit(c, {
@@ -140,9 +140,12 @@ export class PointsService {
             purchasePaise: 0, isNewCustomer: false,
           });
           finalBalance = g.balanceAfter;
+          milestoneCrossed = g.milestoneCrossed ?? milestoneCrossed;
           goalBonuses.push(d);
         }
       }
+
+      await this.notifyEarn(c, shop.id, cust, total + goalBonuses.reduce((a, b) => a + b.points, 0), finalBalance, created);
 
       return {
         goalBonuses,
@@ -150,7 +153,7 @@ export class PointsService {
         bonusPoints: bonus.bonus, bonusItems: bonus.lines.map((l) => ({ productId: l.productId, name: l.name, qty: l.qty, bonusEach: l.each, bonus: l.qty * l.each })),
         rate: { rewardPercent: bps / 100, levelName: level ? LEVEL_NAMES[level.rank - 1] : null, slabbed: !!cfg.reward_slabs, multiplier: offer ? offer.multiplier_x100 / 100 : 1, offerName: offer?.name ?? null },
         valueRupees: (total * cfg.point_value_paise) / 100, balance: finalBalance, newCustomerAtShop: created,
-        milestoneCrossed: out.milestoneCrossed, createdAt: out.entry.created_at,
+        milestoneCrossed, createdAt: out.entry.created_at,
       };
     }));
     await this.tellCustomer(shop.id, staffId, input.customerId, result);

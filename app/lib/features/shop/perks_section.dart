@@ -47,9 +47,10 @@ class _PerksSectionState extends State<PerksSection> {
             'Loyalty goals',
             trailing: f['goals'] == true ? TextButton(onPressed: () => _newGoal(pointValue), child: const Text('+ New goal')) : null,
           ),
-          if (f['goals'] != true)
+          if (f['goals'] != true && goals.isEmpty)
             const _Locked(title: 'Visits and spend goals', text: 'Give bonus points to customers who visit often or buy a lot.')
           else ...[
+            if (f['goals'] != true) const Padding(padding: EdgeInsets.fromLTRB(16, 0, 16, 8), child: InfoNote('Goals are paused: your package no longer includes them. You can stop them here.', icon: Icons.lock_outline, color: VP.amberText, bg: VP.amberSoft)),
             if (goals.isEmpty) const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: InfoNote('No goals yet. Example: 5 visits in 30 days = 200 bonus points.')),
             for (final g in goals)
               Padding(

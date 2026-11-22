@@ -45,6 +45,25 @@ const _strings = <String, Map<String, String>>{
     'my_qr': 'My QR',
     'total_points': 'Total points',
     'my_shop_cards': 'My shop cards',
+    'rewards_title': 'Extra rewards near you',
+    'see_all': 'See all',
+    'details': 'Details',
+    'extra_here': 'Extra rewards here',
+    'rewards_screen': 'Extra rewards',
+    'rewards_note': 'Shops in your city that give extra rewards for visits, spending or loyalty level.',
+    'rewards_empty': 'No shop in your city has goals or levels yet. Check again soon.',
+    'show_more_shops': 'Show more shops',
+    'no_level': 'No level yet',
+    'level_line': '{name} level · {pct}% on every bill',
+    'level_next': 'Spend {need} more in the year to reach {name} ({pct}% on every bill)',
+    'level_top': 'You are at the top level here.',
+    'goal_visits': '{n} visits in {d} days',
+    'goal_spend': 'Spend {amt} in {d} days',
+    'goal_line': '{label} → {pts} bonus points',
+    'goal_done': 'Done! Bonus added. A new round starts soon.',
+    'goal_visits_prog': '{done} of {target} visits',
+    'goal_of': '{done} of {target}',
+    'days_left': '{n} days left',
     'find_shops': 'Find shops',
     'my_milestones': 'My milestones',
     'next': 'NEXT',
@@ -92,6 +111,25 @@ const _strings = <String, Map<String, String>>{
     'my_qr': 'मेरा QR',
     'total_points': 'कुल पॉइंट्स',
     'my_shop_cards': 'मेरे दुकान कार्ड',
+    'rewards_title': 'आपके पास अतिरिक्त इनाम',
+    'see_all': 'सभी देखें',
+    'details': 'देखें',
+    'extra_here': 'यहाँ अतिरिक्त इनाम',
+    'rewards_screen': 'अतिरिक्त इनाम',
+    'rewards_note': 'आपके शहर की वे दुकानें जो बार-बार आने, खरीद या लेवल पर अतिरिक्त इनाम देती हैं।',
+    'rewards_empty': 'आपके शहर की किसी दुकान ने अभी लक्ष्य या लेवल नहीं रखा है। कुछ दिन बाद देखें।',
+    'show_more_shops': 'और दुकानें दिखाएँ',
+    'no_level': 'अभी कोई लेवल नहीं',
+    'level_line': '{name} लेवल · हर बिल पर {pct}% पॉइंट्स',
+    'level_next': '{name} लेवल के लिए साल में {need} की और खरीद करें (हर बिल पर {pct}%)',
+    'level_top': 'आप यहाँ सबसे ऊँचे लेवल पर हैं।',
+    'goal_visits': '{d} दिन में {n} बार आएँ',
+    'goal_spend': '{d} दिन में {amt} की खरीद करें',
+    'goal_line': '{label} → {pts} बोनस पॉइंट्स',
+    'goal_done': 'हो गया! बोनस जुड़ गया। नया दौर जल्द शुरू होगा।',
+    'goal_visits_prog': '{target} में से {done} बार आए',
+    'goal_of': '{target} में से {done}',
+    'days_left': '{n} दिन बाकी',
     'find_shops': 'दुकानें खोजें',
     'my_milestones': 'मेरे लेवल',
     'next': 'अगला',
@@ -116,7 +154,16 @@ const _strings = <String, Map<String, String>>{
 
 String tr(String lang, String key) => _strings[lang]?[key] ?? _strings['en']![key] ?? key;
 
+String trf(String lang, String key, Map<String, String> args) {
+  var s = tr(lang, key);
+  args.forEach((k, v) => s = s.replaceAll('{$k}', v));
+  return s;
+}
+
 extension Tr on BuildContext {
+  /// context.tf('level_line', {'name': 'Gold', 'pct': '6'})
+  String tf(String key, Map<String, String> args) => trf(select<Session, String>((s) => s.language), key, args);
+
   /// context.t('add_points')
   String t(String key) => tr(select<Session, String>((s) => s.language), key);
 }

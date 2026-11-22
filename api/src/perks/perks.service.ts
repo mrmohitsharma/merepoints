@@ -63,10 +63,10 @@ export class PerksService {
     const r = await q.query(
       `SELECT g.id, g.kind, g.target, g.period_days, g.bonus_points, g.starts_on, w.no AS window_no,
               (g.starts_on + (w.no + 1) * g.period_days) AS win_end,
-              (SELECT count(*)::int FROM bills b WHERE b.shop_id = g.shop_id AND b.customer_id = $2 AND b.reversed_at IS NULL
+              (SELECT count(*)::int FROM bills b WHERE b.shop_id = g.shop_id AND b.customer_id = $2 AND b.reversed_at IS NULL AND b.created_at >= g.starts_at
                   AND (b.created_at AT TIME ZONE 'Asia/Kolkata')::date >= g.starts_on + w.no * g.period_days
                   AND (b.created_at AT TIME ZONE 'Asia/Kolkata')::date <  g.starts_on + (w.no + 1) * g.period_days) AS visits,
-              (SELECT COALESCE(sum(b.amount_paise), 0)::bigint FROM bills b WHERE b.shop_id = g.shop_id AND b.customer_id = $2 AND b.reversed_at IS NULL
+              (SELECT COALESCE(sum(b.amount_paise), 0)::bigint FROM bills b WHERE b.shop_id = g.shop_id AND b.customer_id = $2 AND b.reversed_at IS NULL AND b.created_at >= g.starts_at
                   AND (b.created_at AT TIME ZONE 'Asia/Kolkata')::date >= g.starts_on + w.no * g.period_days
                   AND (b.created_at AT TIME ZONE 'Asia/Kolkata')::date <  g.starts_on + (w.no + 1) * g.period_days) AS spend_paise,
               EXISTS (SELECT 1 FROM goal_awards a WHERE a.goal_id = g.id AND a.customer_id = $2 AND a.window_no = w.no) AS awarded

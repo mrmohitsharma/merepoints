@@ -27,6 +27,7 @@ export class RedeemService {
 
   /** "If you redeem N points now, you pay ₹X." Same batch order as the real payout, changes nothing. */
   async preview(shop: ShopCtx, customerId: number, points: number) {
+    if (!Number.isInteger(customerId) || customerId <= 0 || !Number.isInteger(points) || points <= 0) throw E.bad('BAD_INPUT', 'Enter the customer and a number of points');
     const w = (await this.db.pool.query('SELECT balance_points FROM wallets WHERE customer_id = $1 AND shop_id = $2', [customerId, shop.id])).rows[0];
     if (!w) throw E.notFound('Customer at your shop');
     const q = await quoteLots(this.db.pool, customerId, shop.id, points);

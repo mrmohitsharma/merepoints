@@ -226,7 +226,7 @@ export class ShopController {
     }), body));
   }
 
-  @ShopRoute({ owner: true, feature: 'loyalty_goals' }) @Post('perks/goals/:id/stop')
+  @ShopRoute({ owner: true }) @Post('perks/goals/:id/stop')
   stopGoal(@CurrentShop() s: ShopCtx, @CurrentUser() u: AuthUser, @Param('id') id: string) {
     return this.perks.stopGoal(s.id, u.id, Number(id));
   }

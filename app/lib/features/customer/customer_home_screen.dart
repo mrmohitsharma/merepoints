@@ -32,6 +32,7 @@ class CustomerHomeScreen extends StatefulWidget {
 
 class _CustomerHomeScreenState extends State<CustomerHomeScreen> with WidgetsBindingObserver {
   Map<String, dynamic>? _home;
+  Map<String, dynamic>? _rewards; // loaded on open and on pull-to-refresh, not on the 15-second poll
   Object? _error;
   // Products section: 2 rows (6) at a time, "Load more" adds 6.
   String _kind = 'redeem';
@@ -101,8 +102,20 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> with WidgetsBin
     }
   }
 
+  Future<void> _loadRewards() async {
+    try {
+      final r = await context.read<ApiClient>().get('me/rewards', query: {'limit': '3', 'offset': '0'}) as Map<String, dynamic>;
+      if (mounted) setState(() => _rewards = r);
+    } catch (_) {
+      // The rest of the home screen works without it.
+    }
+  }
+
   Future<void> _load({bool quiet = false}) async {
-    if (!quiet) _loadProducts(reset: true);
+    if (!quiet) {
+      _loadProducts(reset: true);
+      _loadRewards();
+    }
     try {
       final h = await context.read<ApiClient>().get('me/home', query: await _where()) as Map<String, dynamic>;
       if (!mounted) return;
@@ -235,7 +248,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> with WidgetsBin
                     const Icon(Icons.chevron_right, color: Colors.white),
                   ]),
                 ),
-              RewardsSection(data: h['rewards'] as Map<String, dynamic>?, onBack: () => _load(quiet: true)),
+              RewardsSection(data: _rewards, onBack: _loadRewards),
               SectionTitle(context.t('my_shop_cards'), trailing: TextButton(onPressed: widget.onFindShops, child: Text(context.t('find_shops')))),
               if (cards.isEmpty)
                 const Padding(

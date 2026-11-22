@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api.dart';
 import '../../core/format.dart';
+import '../../core/i18n.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import 'shop_card_screen.dart';
@@ -33,7 +34,7 @@ class LevelProgress extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              level == null ? 'No level yet' : '${level['name']} level · ${asNum(level['rewardPercent'])}% on every bill',
+              level == null ? context.t('no_level') : context.tf('level_line', {'name': '${level['name']}', 'pct': '${asNum(level['rewardPercent'])}'}),
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
           ),
@@ -41,11 +42,11 @@ class LevelProgress extends StatelessWidget {
       if (my != null && next != null)
         Padding(
           padding: const EdgeInsets.only(top: 4),
-          child: Text('Spend ${rupees(asNum(next['needRupees']))} more in the year to reach ${next['name']} (${asNum(next['rewardPercent'])}% on every bill)',
+          child: Text(context.tf('level_next', {'need': rupees(asNum(next['needRupees'])), 'name': '${next['name']}', 'pct': '${asNum(next['rewardPercent'])}'}),
               style: const TextStyle(fontSize: 13, color: VP.muted)),
         ),
       if (my != null && level != null && next == null)
-        const Padding(padding: EdgeInsets.only(top: 4), child: Text('You are at the top level here.', style: TextStyle(fontSize: 13, color: VP.green))),
+        Padding(padding: const EdgeInsets.only(top: 4), child: Text(context.t('level_top'), style: const TextStyle(fontSize: 13, color: VP.green))),
       const SizedBox(height: 8),
       Wrap(spacing: 6, runSpacing: 6, children: [
         for (final l in levels)
@@ -68,24 +69,32 @@ class GoalRows extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       for (final g in goals) ...[
-        _goal(g),
+        _goal(context, g),
         const SizedBox(height: 8),
       ],
     ]);
   }
 
-  Widget _goal(Map<String, dynamic> g) {
+  Widget _goal(BuildContext context, Map<String, dynamic> g) {
     final p = g['progress'] as Map?;
     final visits = g['kind'] == 'visits';
     final target = p == null ? 0 : asNum(p['target']).toDouble();
     final done = p == null ? 0 : asNum(p['done']).toDouble();
     final achieved = p?['achieved'] == true;
     final left = p?['daysLeft'];
+    final days = '${asNum(g['periodDays'])}';
+    final label = visits
+        ? context.tf('goal_visits', {'n': '${asNum(g['target'])}', 'd': days})
+        : context.tf('goal_spend', {'amt': rupees(asNum(g['target'])), 'd': days});
+    final doneText = visits
+        ? context.tf('goal_visits_prog', {'done': '${done.round()}', 'target': '${target.round()}'})
+        : context.tf('goal_of', {'done': rupees(done), 'target': rupees(target)});
+    final progText = left == null ? doneText : '$doneText · ${context.tf('days_left', {'n': '$left'})}';
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Icon(visits ? Icons.repeat : Icons.currency_rupee, size: 18, color: achieved ? VP.green : VP.blue),
         const SizedBox(width: 8),
-        Expanded(child: Text('${g['label']} → ${pts(asNum(g['bonusPoints']))} bonus points', style: const TextStyle(fontWeight: FontWeight.w600))),
+        Expanded(child: Text(context.tf('goal_line', {'label': label, 'pts': pts(asNum(g['bonusPoints']))}), style: const TextStyle(fontWeight: FontWeight.w600))),
       ]),
       if (p != null && target > 0) ...[
         const SizedBox(height: 6),
@@ -95,9 +104,7 @@ class GoalRows extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          achieved
-              ? 'Done! Bonus added. A new round starts soon.'
-              : '${visits ? '${done.round()} of ${target.round()} visits' : '${rupees(done)} of ${rupees(target)}'}${left == null ? '' : ' · $left days left'}',
+          achieved ? context.t('goal_done') : progText,
           style: TextStyle(fontSize: 12.5, color: achieved ? VP.green : VP.muted),
         ),
       ],
@@ -118,7 +125,7 @@ class ShopPerksPanel extends StatelessWidget {
     final goals = _list(p['goals']);
     if (levels.isEmpty && goals.isEmpty) return const SizedBox.shrink();
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      const SectionTitle('Extra rewards here'),
+      SectionTitle(context.t('extra_here')),
       WhiteCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           if (levels.isNotEmpty) LevelProgress(levels: levels, my: p['my'] as Map<String, dynamic>?),
@@ -186,8 +193,8 @@ class RewardsSection extends StatelessWidget {
     final more = data?['hasMore'] == true;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       SectionTitle(
-        'Extra rewards near you',
-        trailing: TextButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RewardsScreen())).then((_) => onBack?.call()), child: Text(more ? 'See all' : 'Details')),
+        context.t('rewards_title'),
+        trailing: TextButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RewardsScreen())).then((_) => onBack?.call()), child: Text(more ? context.t('see_all') : context.t('details'))),
       ),
       for (final it in items.take(3)) ShopRewardTile(item: it, onBack: onBack),
     ]);
@@ -250,23 +257,23 @@ class _RewardsScreenState extends State<RewardsScreen> {
     } else if (_error != null && _items.isEmpty) {
       body = ErrorRetry(error: _error!, onRetry: () => _load(reset: true));
     } else if (_items.isEmpty) {
-      body = const Center(
-        child: Padding(padding: EdgeInsets.all(24), child: Text('No shop in your city has goals or levels yet. Check again soon.', textAlign: TextAlign.center, style: TextStyle(color: VP.muted, fontSize: 16))),
+      body = Center(
+        child: Padding(padding: const EdgeInsets.all(24), child: Text(context.t('rewards_empty'), textAlign: TextAlign.center, style: const TextStyle(color: VP.muted, fontSize: 16))),
       );
     } else {
       body = RefreshIndicator(
         onRefresh: () => _load(reset: true),
         child: ListView(padding: const EdgeInsets.only(top: 8, bottom: 24), children: [
-          const Padding(padding: EdgeInsets.fromLTRB(16, 0, 16, 8), child: InfoNote('Shops in your city that give extra rewards for visits, spending or loyalty level.', icon: Icons.card_giftcard)),
+          Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 8), child: InfoNote(context.t('rewards_note'), icon: Icons.card_giftcard)),
           for (final it in _items) ShopRewardTile(item: it, onBack: () => _load(reset: true)),
           if (_more)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: OutlinedButton(onPressed: _loadingMore ? null : () => _load(), child: _loadingMore ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2.5)) : const Text('Show more shops')),
+              child: OutlinedButton(onPressed: _loadingMore ? null : () => _load(), child: _loadingMore ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2.5)) : Text(context.t('show_more_shops'))),
             ),
         ]),
       );
     }
-    return Scaffold(appBar: AppBar(title: const Text('Extra rewards')), body: body);
+    return Scaffold(appBar: AppBar(title: Text(context.t('rewards_screen'))), body: body);
   }
 }

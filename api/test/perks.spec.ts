@@ -92,13 +92,34 @@ describe('what the customer sees', () => {
       await http().post('/v1/shop/perks/goals').set(auth(s.owner.token, s.shopId)).send({ kind: 'visits', target: 4, periodDays: 30, bonusPoints: 100 }).expect(201);
       shops.push(s);
     }
-    const home = (await http().get('/v1/me/home').set(auth(c.token)).expect(200)).body;
-    expect(home.rewards.items).toHaveLength(3);
-    expect(home.rewards.hasMore).toBe(true);
+    const home = (await http().get('/v1/me/rewards').query({ limit: 3, offset: 0 }).set(auth(c.token)).expect(200)).body;
+    expect(home.items).toHaveLength(3);
+    expect(home.hasMore).toBe(true);
+    expect((await http().get('/v1/me/home').set(auth(c.token)).expect(200)).body.rewards).toBeUndefined(); // not part of the 15-second poll
     const all = (await http().get('/v1/me/rewards').query({ limit: 20 }).set(auth(c.token)).expect(200)).body;
     expect(all.items.length).toBeGreaterThanOrEqual(4);
     expect(all.hasMore).toBe(false);
     const page2 = (await http().get('/v1/me/rewards').query({ limit: 3, offset: 3 }).set(auth(c.token)).expect(200)).body;
     expect(page2.items.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('goal edge cases', () => {
+  it('bills made before the goal started do not count; stopping works after a downgrade', async () => {
+    const shop = await makeShop(admin);
+    const c = await makeCustomer();
+    const sh = auth(shop.owner.token, shop.shopId);
+    await bill(shop.owner.token, shop.shopId, c.userId, 1000, 'E-1').expect(201); // before the goal
+    const id = (await http().post('/v1/shop/perks/goals').set(sh).send({ kind: 'visits', target: 2, periodDays: 30, bonusPoints: 100 }).expect(201)).body.id;
+    const second = (await bill(shop.owner.token, shop.shopId, c.userId, 1000, 'E-2').expect(201)).body;
+    expect(second.goalBonuses).toHaveLength(0); // only 1 visit since the goal started
+    await setPlan(shop.shopId, 'basic');
+    await http().post(`/v1/shop/perks/goals/${id}/stop`).set(sh).expect(201);
+  });
+
+  it('redeem preview rejects bad input', async () => {
+    const shop = await makeShop(admin);
+    const r = await http().get('/v1/shop/redemptions/preview').query({ customerId: 'abc', points: 'x' }).set(auth(shop.owner.token, shop.shopId));
+    expect(r.status).toBe(400);
   });
 });

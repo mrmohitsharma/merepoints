@@ -98,7 +98,6 @@ export class CustomerService {
       shopsCount: cards.length,
       milestones: await this.milestones.window(cust),
       pending: await this.redeem.pendingForCustomer(userId),
-      rewards: await this.perks.rewards(userId, { limit: 3, offset: 0 }),
       cards: cards.map((c) => ({
         shopId: c.shop_id, name: c.name, logoUrl: c.logo_url,
         points: Number(c.balance_points), onHold: Number(c.held_points),

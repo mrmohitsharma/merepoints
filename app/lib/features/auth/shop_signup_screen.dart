@@ -42,7 +42,8 @@ class _ShopSignupScreenState extends State<ShopSignupScreen> {
   // step 4
   double _percent = 5;
   List<RewardSlab>? _slabs;
-  double _pointValue = 1;
+  double _pointValue = 0.25; // replaced by Super Admin's default as soon as it loads
+  bool _pointValueLocked = false;
   int _minRedeem = 500;
 
   static const _maxAccuracyM = 100.0;
@@ -52,6 +53,16 @@ class _ShopSignupScreenState extends State<ShopSignupScreen> {
     super.initState();
     context.read<ApiClient>().get('shops/categories').then((r) {
       if (mounted) setState(() => _allCats = (r as List).cast<Map<String, dynamic>>());
+    }).catchError((_) {});
+    // Super Admin's value of 1 point (and whether owners may change it)
+    context.read<ApiClient>().get('platform/defaults').then((r) {
+      final d = r as Map<String, dynamic>;
+      if (mounted) {
+        setState(() {
+          _pointValue = asNum(d['pointValueRupees']).toDouble();
+          _pointValueLocked = d['pointValueLocked'] == true;
+        });
+      }
     }).catchError((_) {});
   }
 
@@ -223,6 +234,7 @@ class _ShopSignupScreenState extends State<ShopSignupScreen> {
           slabs: _slabs,
           onSlabsChanged: (s) => setState(() => _slabs = s),
           pointValue: _pointValue,
+          pointValueLocked: _pointValueLocked,
           minRedeem: _minRedeem,
           onChanged: (p, v, m) => setState(() {
             _percent = p;
@@ -281,10 +293,12 @@ class _ShopSignupScreenState extends State<ShopSignupScreen> {
 class LoyaltyRulesEditor extends StatelessWidget {
   const LoyaltyRulesEditor({
     super.key, required this.percent, required this.pointValue, required this.minRedeem, required this.onChanged,
-    this.slabs, this.onSlabsChanged, this.draftSlabs,
+    this.slabs, this.onSlabsChanged, this.draftSlabs, this.pointValueLocked = false,
   });
   final double percent;
   final double pointValue;
+  /// Super Admin fixed the value of 1 point for every shop: show it, do not let the owner change it.
+  final bool pointValueLocked;
   final int minRedeem;
   final void Function(double percent, double pointValue, int minRedeem) onChanged;
   /// null = one % for all bills.
@@ -330,7 +344,22 @@ class LoyaltyRulesEditor extends StatelessWidget {
       const SizedBox(height: 18),
       const Text('2. Value of 1 point at your shop', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
       const SizedBox(height: 8),
-      ChoiceChips<double>(options: {0.25: '₹0.25', 0.5: '₹0.50', 1.0: '₹1'}, selected: {pointValue}, onTap: (v) => onChanged(percent, v, minRedeem)),
+      if (pointValueLocked)
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: VP.blue.withOpacity(0.07), borderRadius: BorderRadius.circular(14)),
+          child: Row(children: [
+            const Icon(Icons.lock_outline, color: VP.blue),
+            const SizedBox(width: 10),
+            Expanded(child: Text('1 point = ${rupees(pointValue)}. Mere Points sets this value for every shop.', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600))),
+          ]),
+        )
+      else
+        ChoiceChips<double>(
+          options: {0.25: '₹0.25', 0.5: '₹0.50', 1.0: '₹1', if (![0.25, 0.5, 1.0].contains(pointValue)) pointValue: rupees(pointValue)},
+          selected: {pointValue},
+          onTap: (v) => onChanged(percent, v, minRedeem),
+        ),
       const SizedBox(height: 18),
       const Text('3. Minimum points to redeem', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
       const SizedBox(height: 8),

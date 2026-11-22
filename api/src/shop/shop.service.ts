@@ -85,11 +85,43 @@ export class ShopService {
     });
   }
 
+  /** Super Admin's default value of 1 point (₹) and whether shop owners may change it. */
+  async platformPointValue(q: Q = this.db.pool) {
+    const rows = (await q.query(`SELECT key, value FROM platform_settings WHERE key IN ('default_point_value_rupees','point_value_locked')`)).rows;
+    const m = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
+    return { rupees: Number(m.default_point_value_rupees ?? 0.25), locked: m.point_value_locked === true };
+  }
+
+  /**
+   * Admin turned the lock on (or changed the value while locked): give every shop a new rules version with the platform value.
+   * Points already earned keep the value they were earned at.
+   */
+  async applyLockedPointValue(c: Q) {
+    const pv = await this.platformPointValue(c);
+    if (!pv.locked) return 0;
+    const paise = toPaise(pv.rupees);
+    const shops = (await c.query(
+      `SELECT s.id, s.owner_user_id, lc.id AS cfg_id FROM shops s JOIN loyalty_configs lc ON lc.id = s.current_config_id WHERE lc.point_value_paise <> $1`, [paise])).rows;
+    for (const sh of shops) {
+      const row = (await c.query(
+        `INSERT INTO loyalty_configs (shop_id, version, enabled, reward_bps, reward_slabs, point_value_paise, min_bill_paise, max_points_per_bill,
+                                      min_redeem_points, max_redeem_points, expiry_days, payout_cash, payout_upi, created_by)
+         SELECT lc.shop_id, (SELECT max(version) FROM loyalty_configs WHERE shop_id = lc.shop_id) + 1, lc.enabled, lc.reward_bps, lc.reward_slabs, $2, lc.min_bill_paise,
+                lc.max_points_per_bill, lc.min_redeem_points, lc.max_redeem_points, lc.expiry_days, lc.payout_cash, lc.payout_upi, $3
+           FROM loyalty_configs lc WHERE lc.id = $1 RETURNING id`, [sh.cfg_id, paise, sh.owner_user_id])).rows[0];
+      await c.query('UPDATE shops SET current_config_id = $2 WHERE id = $1', [sh.id, row.id]);
+    }
+    return shops.length;
+  }
+
   /** New config = new version row. Old bills keep pointing at the version they used. */
   async insertConfig(c: Q, shopId: number, userId: number, l: LoyaltyConfigInput) {
     if (l.maxRedeemPoints !== null && l.maxRedeemPoints < l.minRedeemPoints) {
       throw E.bad('BAD_CONFIG', 'Maximum per redemption must be at least the minimum to redeem');
     }
+    // When Super Admin has locked the point value, every shop uses the platform value.
+    const platform = await this.platformPointValue(c);
+    if (platform.locked) l = { ...l, pointValueRupees: platform.rupees };
     const slabs = l.rewardSlabs?.map((s) => ({ from_paise: toPaise(s.fromRupees), bps: Math.round(s.percent * 100) })) ?? null;
     // reward_bps keeps the lowest slab's rate, so screens that show one number still work.
     const flatBps = slabs ? slabs[0].bps : Math.round(l.rewardPercent! * 100);
@@ -110,6 +142,10 @@ export class ShopService {
     return this.db.tx(async (c) => {
       await c.query('SELECT id FROM shops WHERE id = $1 FOR UPDATE', [shopId]); // serialise version numbers
       if (l.rewardSlabs) await requireFeature(c, shopId, 'reward_slabs');
+      const platform = await this.platformPointValue(c);
+      if (platform.locked && toPaise(l.pointValueRupees) !== toPaise(platform.rupees)) {
+        throw E.forbidden('POINT_VALUE_LOCKED', `The value of 1 point is fixed at ₹${platform.rupees} for every shop by Mere Points`);
+      }
       const row = await this.insertConfig(c, shopId, userId, l);
       await this.audit(c, userId, shopId, 'config.update', 'loyalty_config', row.id, l);
       return { version: row.version };

@@ -32,6 +32,8 @@ export default function Settings() {
   type Version = { version: number; createdAt: string; byName: string | null; current: boolean; changes: string[]; config: { rewardPercent: number; pointValueRupees: number; minRedeemPoints: number; expiryDays: number | null } };
   const [history, setHistory] = useState<Version[]>([]);
   useEffect(() => { merchantApi.get('shop/config/history').then(setHistory).catch(() => undefined); }, [shop.loyalty.version]);
+  const [pvLocked, setPvLocked] = useState(false);
+  useEffect(() => { merchantApi.get('platform/defaults').then((d: any) => setPvLocked(!!d.pointValueLocked)).catch(() => undefined); }, []);
   useEffect(() => { merchantApi.get('shops/categories').then(setCats).catch(() => undefined); }, []);
 
   async function saveProfile() {
@@ -90,7 +92,7 @@ export default function Settings() {
             {!slabs ? (
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Points per ₹100 spent (%)"><Input {...numIn('rewardPercent', true)} /></Field>
-                <Field label="Value of 1 point (₹)"><Input {...numIn('pointValueRupees', true)} /></Field>
+                <Field label="Value of 1 point (₹)" hint={pvLocked ? 'Fixed by Mere Points for every shop' : undefined}><Input {...numIn('pointValueRupees', true)} disabled={pvLocked} /></Field>
               </div>
             ) : (
               <div>
@@ -110,7 +112,7 @@ export default function Settings() {
                   {slabs.length < 10 && <Button type="button" variant="secondary" size="sm" onClick={addSlab}><Plus size={16} /> Add range</Button>}
                   <span className="text-xs text-muted">The range a bill falls in sets the % for the whole bill.</span>
                 </div>
-                <div className="mt-4 max-w-[calc(50%-6px)]"><Field label="Value of 1 point (₹)"><Input {...numIn('pointValueRupees', true)} /></Field></div>
+                <div className="mt-4 max-w-[calc(50%-6px)]"><Field label="Value of 1 point (₹)" hint={pvLocked ? 'Fixed by Mere Points for every shop' : undefined}><Input {...numIn('pointValueRupees', true)} disabled={pvLocked} /></Field></div>
               </div>
             )}
             <Note>

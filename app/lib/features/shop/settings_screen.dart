@@ -103,11 +103,15 @@ class _LoyaltySettingsScreenState extends State<LoyaltySettingsScreen> {
   final _minBill = TextEditingController();
   int? _expiryDays;
   List<RewardSlab>? _slabs;
+  bool _pointValueLocked = false;
   List<RewardSlab>? _lastSlabs; // last ranges shown, kept when the owner flips to one flat %
 
   @override
   void initState() {
     super.initState();
+    context.read<ApiClient>().get('platform/defaults').then((r) {
+      if (mounted) setState(() => _pointValueLocked = (r as Map)['pointValueLocked'] == true);
+    }).catchError((_) {});
     context.read<ApiClient>().sget('config').then((r) {
       if (!mounted) return;
       final c = Map<String, dynamic>.from(r as Map);
@@ -184,6 +188,7 @@ class _LoyaltySettingsScreenState extends State<LoyaltySettingsScreen> {
                   if (s != null) _lastSlabs = s;
                 }),
                 pointValue: asNum(c['pointValueRupees']).toDouble(),
+                pointValueLocked: _pointValueLocked,
                 minRedeem: asNum(c['minRedeemPoints']).toInt(),
                 onChanged: (p, v, m) => setState(() {
                   c['rewardPercent'] = p;

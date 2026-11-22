@@ -422,17 +422,32 @@ export class AdminService {
       editable: Object.entries(EDITABLE_SETTINGS).map(([key, m]) => ({ key, ...m, value: Number(map[key] ?? 0) })),
       defaultPlan: map.default_plan ?? 'basic',
       milestoneBasis: map.milestone_basis ?? 'points',
+      pointValue: { rupees: Number(map.default_point_value_rupees ?? 0.25), locked: map.point_value_locked === true },
       invite: { androidUrl: map.invite_android_url ?? '', iosUrl: map.invite_ios_url ?? '' },
     };
   }
 
-  async updateSettings(adminId: number, b: Record<string, number> & { defaultPlan?: string; inviteAndroidUrl?: string; inviteIosUrl?: string }) {
+  async updateSettings(adminId: number, b: Record<string, number> & { defaultPlan?: string; inviteAndroidUrl?: string; inviteIosUrl?: string; defaultPointValueRupees?: number | string; pointValueLocked?: number | string }) {
     await this.db.tx(async (c) => {
+      let pointValueTouched = false;
       for (const [key, raw] of Object.entries(b)) {
         if (key === 'defaultPlan') {
           const ok = (await c.query('SELECT 1 FROM plans WHERE code = $1 AND active', [raw])).rowCount;
           if (!ok) throw E.bad('BAD_PLAN', 'Pick an active plan');
           await c.query(`INSERT INTO platform_settings (key, value) VALUES ('default_plan', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [JSON.stringify(raw)]);
+          continue;
+        }
+        if (key === 'defaultPointValueRupees') {
+          const v = Number(raw);
+          if (!Number.isFinite(v) || v < 0.01 || v > 100 || Math.abs(v * 100 - Math.round(v * 100)) > 1e-9) throw E.bad('BAD_POINT_VALUE', 'Value of 1 point: between ₹0.01 and ₹100, up to 2 decimals');
+          await c.query(`INSERT INTO platform_settings (key, value) VALUES ('default_point_value_rupees', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [JSON.stringify(Math.round(v * 100) / 100)]);
+          pointValueTouched = true;
+          continue;
+        }
+        if (key === 'pointValueLocked') {
+          const on = raw === 1 || raw === '1' || raw === 'true';
+          await c.query(`INSERT INTO platform_settings (key, value) VALUES ('point_value_locked', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [JSON.stringify(on)]);
+          pointValueTouched = true;
           continue;
         }
         if (key === 'inviteAndroidUrl' || key === 'inviteIosUrl') {
@@ -447,6 +462,7 @@ export class AdminService {
         if (!Number.isInteger(v) || v < meta.min || v > meta.max) throw E.bad('BAD_SETTING', `${meta.label}: ${meta.min} to ${meta.max}`);
         await c.query(`INSERT INTO platform_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [key, JSON.stringify(v)]);
       }
+      if (pointValueTouched) await this.shops.applyLockedPointValue(c);
       await this.shops.audit(c, A(adminId), null, 'settings.update', 'setting', null, b);
     });
     return this.settings();

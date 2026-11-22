@@ -7,6 +7,7 @@ import { RedeemService } from '../redeem/redeem.service';
 import { ProductsService } from '../products/products.service';
 import { AdsService } from '../ads/ads.service';
 import { Db } from '../db/db.service';
+import { ShopService } from '../shop/shop.service';
 
 /** Work type code; the list lives in the professions table (editable by Super Admin). */
 const profession = z.string().regex(/^[a-z][a-z0-9_]{1,29}$/);
@@ -21,6 +22,18 @@ export class InviteController {
     const rows = await this.db.many(`SELECT key, value #>> '{}' AS v FROM platform_settings WHERE key IN ('invite_android_url','invite_ios_url')`);
     const m = Object.fromEntries(rows.map((r) => [r.key, r.v as string]));
     return { androidUrl: m.invite_android_url || null, iosUrl: m.invite_ios_url || null };
+  }
+}
+
+/** What 1 point is worth by default, and whether shop owners may change it. Read by the shop sign-up and loyalty-rules screens. */
+@Controller('platform')
+export class PlatformController {
+  constructor(private shops: ShopService) {}
+
+  @Get('defaults')
+  async defaults() {
+    const p = await this.shops.platformPointValue();
+    return { pointValueRupees: p.rupees, pointValueLocked: p.locked };
   }
 }
 

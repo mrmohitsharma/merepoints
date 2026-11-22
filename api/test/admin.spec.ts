@@ -209,6 +209,12 @@ describe('admin portal data', () => {
     const b2 = (await http().get('/v1/shop/billing').set(auth(o2.token, s2))).body;
     expect([b2.daysLeft, b2.plan.code]).toEqual([14, 'business']);
     await http().put('/v1/admin/settings').set(auth(owner.token)).send({ trial_days: 0, defaultPlan: 'basic' }).expect(200);
+    // download links for the WhatsApp invite
+    await http().put('/v1/admin/settings').set(auth(owner.token)).send({ inviteAndroidUrl: 'not a link' }).expect(400);
+    const inv = await http().put('/v1/admin/settings').set(auth(owner.token)).send({ inviteAndroidUrl: 'https://play.google.com/store/apps/details?id=in.merepoints', inviteIosUrl: '' }).expect(200);
+    expect(inv.body.invite).toEqual({ androidUrl: 'https://play.google.com/store/apps/details?id=in.merepoints', iosUrl: '' });
+    const anyone = await makeCustomer();
+    expect((await http().get('/v1/invite/links').set(auth(anyone.token)).expect(200)).body).toEqual({ androidUrl: 'https://play.google.com/store/apps/details?id=in.merepoints', iosUrl: null });
 
     const audit = (await http().get('/v1/admin/audit').set(auth(owner.token)).expect(200)).body;
     expect(audit.find((x: any) => x.action === 'settings.update').by_admin).toBe(owner.username);

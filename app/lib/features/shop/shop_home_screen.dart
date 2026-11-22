@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/invite.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api.dart';
@@ -74,6 +75,7 @@ class ShopHomeScreen extends StatelessWidget {
                             style: const TextStyle(fontSize: 13, color: VP.muted)),
                       ]),
                     ),
+                    InviteButton(senderName: '${shop['name']}', shop: true),
                   ]),
                   const SizedBox(height: 14),
                   Row(children: [

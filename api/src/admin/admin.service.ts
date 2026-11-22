@@ -422,16 +422,23 @@ export class AdminService {
       editable: Object.entries(EDITABLE_SETTINGS).map(([key, m]) => ({ key, ...m, value: Number(map[key] ?? 0) })),
       defaultPlan: map.default_plan ?? 'basic',
       milestoneBasis: map.milestone_basis ?? 'points',
+      invite: { androidUrl: map.invite_android_url ?? '', iosUrl: map.invite_ios_url ?? '' },
     };
   }
 
-  async updateSettings(adminId: number, b: Record<string, number> & { defaultPlan?: string }) {
+  async updateSettings(adminId: number, b: Record<string, number> & { defaultPlan?: string; inviteAndroidUrl?: string; inviteIosUrl?: string }) {
     await this.db.tx(async (c) => {
       for (const [key, raw] of Object.entries(b)) {
         if (key === 'defaultPlan') {
           const ok = (await c.query('SELECT 1 FROM plans WHERE code = $1 AND active', [raw])).rowCount;
           if (!ok) throw E.bad('BAD_PLAN', 'Pick an active plan');
           await c.query(`INSERT INTO platform_settings (key, value) VALUES ('default_plan', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [JSON.stringify(raw)]);
+          continue;
+        }
+        if (key === 'inviteAndroidUrl' || key === 'inviteIosUrl') {
+          const url = String(raw ?? '').trim();
+          if (url && !/^https:\/\/[^\s]{4,300}$/.test(url)) throw E.bad('BAD_LINK', 'Enter a full link starting with https://');
+          await c.query(`INSERT INTO platform_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [key === 'inviteAndroidUrl' ? 'invite_android_url' : 'invite_ios_url', JSON.stringify(url)]);
           continue;
         }
         const meta = EDITABLE_SETTINGS[key];

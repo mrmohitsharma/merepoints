@@ -11,13 +11,13 @@ export default function Settings() {
   const [vals, setVals] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    if (s.data) setVals({ ...Object.fromEntries(s.data.editable.map((e: any) => [e.key, String(e.value)])), defaultPlan: s.data.defaultPlan });
+    if (s.data) setVals({ ...Object.fromEntries(s.data.editable.map((e: any) => [e.key, String(e.value)])), defaultPlan: s.data.defaultPlan, inviteAndroidUrl: s.data.invite?.androidUrl ?? '', inviteIosUrl: s.data.invite?.iosUrl ?? '' });
   }, [s.data]);
 
   async function save() {
     setBusy(true);
     try {
-      const body: Record<string, number | string> = { defaultPlan: vals.defaultPlan };
+      const body: Record<string, number | string> = { defaultPlan: vals.defaultPlan, inviteAndroidUrl: vals.inviteAndroidUrl ?? '', inviteIosUrl: vals.inviteIosUrl ?? '' };
       for (const e of s.data.editable) body[e.key] = Number(vals[e.key]);
       await adminApi.put('admin/settings', body);
       toast.ok('Settings saved');
@@ -42,6 +42,12 @@ export default function Settings() {
                   <Input inputMode="numeric" value={vals[e.key] ?? ''} onChange={(ev) => setVals({ ...vals, [e.key]: ev.target.value.replace(/\D/g, '') })} />
                 </Field>
               ))}
+              <Field label="App download link: Android (Play Store)" hint="Goes into the WhatsApp invite message that shops, staff and carpenters send. Full link starting with https://">
+                <Input value={vals.inviteAndroidUrl ?? ''} onChange={(ev) => setVals({ ...vals, inviteAndroidUrl: ev.target.value })} placeholder="https://play.google.com/store/apps/details?id=..." />
+              </Field>
+              <Field label="App download link: iPhone (App Store)" hint="Leave empty until the iPhone app is live">
+                <Input value={vals.inviteIosUrl ?? ''} onChange={(ev) => setVals({ ...vals, inviteIosUrl: ev.target.value })} placeholder="https://apps.apple.com/app/..." />
+              </Field>
               <Button busy={busy} onClick={save}>Save settings</Button>
             </div>
           </Card>

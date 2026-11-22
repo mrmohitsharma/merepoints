@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../widgets/invite.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
@@ -168,6 +169,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> with WidgetsBin
                   Text(s.name ?? '', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
                 ]),
               ),
+              InviteButton(senderName: s.name ?? 'Mere Points', light: true),
+              const SizedBox(width: 6),
               const NotificationBell(),
               if (ms['current'] != null)
                 Container(

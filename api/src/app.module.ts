@@ -16,7 +16,7 @@ import { OffersService } from './offers/offers.service';
 import { ReportsService } from './reports/reports.service';
 import { CustomerService } from './customer/customer.service';
 import { MilestoneService } from './customer/milestone.service';
-import { CustomerController, DiscoverController } from './customer/customer.controller';
+import { CustomerController, DiscoverController, InviteController } from './customer/customer.controller';
 import { AdminService } from './admin/admin.service';
 import { AdminAuthController, AdminController } from './admin/admin.controller';
 import { AdminAuthService } from './admin/admin-auth.service';
@@ -38,7 +38,7 @@ import { CustomerDuesController, ShopDuesController } from './dues/dues.controll
 
 @Module({
   imports: [JwtModule.register({ global: true, secret: config.jwtSecret, signOptions: { expiresIn: config.jwtTtl } })],
-  controllers: [HealthController, AuthController, ShopRegisterController, ShopController, CustomerController, DiscoverController,
+  controllers: [HealthController, AuthController, ShopRegisterController, ShopController, CustomerController, DiscoverController, InviteController,
     AdminAuthController, AdminController, ShopBillingController, BillingWebhookController, UploadsController,
     CustomerAdsController, ShopAdsController, AdminAdsController, ShopNotificationsController, CustomerNotificationsController, ShopDuesController, CustomerDuesController],
   providers: [

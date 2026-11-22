@@ -29,6 +29,7 @@ void _android() {
       'android.permission.ACCESS_FINE_LOCATION',
       'android.permission.ACCESS_COARSE_LOCATION',
       'android.permission.POST_NOTIFICATIONS', // Android 13+: shop offers and updates
+      'android.permission.READ_CONTACTS', // Invite button: suggest names and numbers
     ];
     for (final p in perms) {
       if (!s.contains(p)) s = s.replaceFirst('<application', '<uses-permission android:name="$p"/>\n    <application');
@@ -87,6 +88,7 @@ subprojects { p ->
 void _ios() {
   _patch('ios/Runner/Info.plist', (s) {
     final entries = <String, String>{
+      'NSContactsUsageDescription': '<string>Pick people from your contacts to invite them to Mere Points on WhatsApp.</string>',
       'NSCameraUsageDescription': '<string>Scan your customers\' Mere Points QR code at the counter, and take product photos.</string>',
       'NSPhotoLibraryUsageDescription': '<string>Pick product photos and ad banners for your shop.</string>',
       'NSLocationWhenInUseUsageDescription': '<string>Set your shop location and show Mere Points shops near you.</string>',

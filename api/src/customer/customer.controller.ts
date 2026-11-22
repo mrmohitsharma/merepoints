@@ -6,9 +6,23 @@ import { CustomerService } from './customer.service';
 import { RedeemService } from '../redeem/redeem.service';
 import { ProductsService } from '../products/products.service';
 import { AdsService } from '../ads/ads.service';
+import { Db } from '../db/db.service';
 
 /** Work type code; the list lives in the professions table (editable by Super Admin). */
 const profession = z.string().regex(/^[a-z][a-z0-9_]{1,29}$/);
+
+/** Download links the Invite button puts in the WhatsApp message. Set by Super Admin; same for everyone. Any signed-in person can read them. */
+@Controller('invite')
+export class InviteController {
+  constructor(private db: Db) {}
+
+  @Get('links')
+  async links() {
+    const rows = await this.db.many(`SELECT key, value #>> '{}' AS v FROM platform_settings WHERE key IN ('invite_android_url','invite_ios_url')`);
+    const m = Object.fromEntries(rows.map((r) => [r.key, r.v as string]));
+    return { androidUrl: m.invite_android_url || null, iosUrl: m.invite_ios_url || null };
+  }
+}
 
 @Controller('me')
 export class CustomerController {

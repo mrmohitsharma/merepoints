@@ -42,8 +42,9 @@ export class RedeemService {
       const cfg = await this.shops.getConfig(shop.id, c);
       if (input.method === 'cash' && !cfg.payout_cash) throw E.bad('METHOD_OFF', 'Cash payout is switched off for your shop');
       if (input.method === 'upi' && !cfg.payout_upi) throw E.bad('METHOD_OFF', 'UPI payout is switched off for your shop');
-      const cust = (await c.query('SELECT c.upi_id, u.mobile, u.name FROM customers c JOIN users u ON u.id = c.user_id WHERE c.user_id = $1', [input.customerId])).rows[0];
+      const cust = (await c.query('SELECT c.upi_id, u.mobile, u.name, u.deactivated_at FROM customers c JOIN users u ON u.id = c.user_id WHERE c.user_id = $1', [input.customerId])).rows[0];
       if (!cust) throw E.notFound('Customer');
+      if (cust.deactivated_at) throw E.forbidden('CUSTOMER_INACTIVE', 'This customer account is switched off');
       if (input.method === 'upi' && !cust.upi_id) throw E.bad('NO_UPI', 'Customer has not added a UPI ID. Pay cash or ask them to add UPI in their profile.');
 
       const { w } = await lockWallet(c, input.customerId, shop.id, false);

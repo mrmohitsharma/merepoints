@@ -168,6 +168,8 @@ export class AuthService {
 
   /** Everything the app needs to show the role switch after login. */
   async session(userId: number) {
+    const off = await this.db.one('SELECT 1 FROM users WHERE id = $1 AND deactivated_at IS NOT NULL', [userId]);
+    if (off) throw E.forbidden('ACCOUNT_INACTIVE', 'Your account is switched off. Please contact Mere Points support.');
     const token = await this.jwt.signAsync({ sub: userId, kind: 'access' });
     return { token, ...(await this.me(userId)) };
   }

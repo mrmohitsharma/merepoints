@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Ip, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Ip, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { z } from 'zod';
 import { AdminCtx, AdminOnly, CurrentAdmin, Public } from '../common/auth';
 import { parse } from '../common/util';
@@ -10,6 +10,7 @@ import { SmsService } from '../sms/sms.service';
 import { BillingService } from '../billing/billing.service';
 import { FEATURES } from '../billing/entitlements';
 import { SchedulerService } from '../jobs/scheduler.service';
+import { PointsService } from '../points/points.service';
 
 const role = z.enum(['owner', 'ops', 'support']);
 const days = (v?: string) => Math.min(Math.max(Number(v) || 30, 7), 365);
@@ -44,6 +45,7 @@ export class AdminController {
   constructor(
     private admin: AdminService, private auth: AdminAuthService, private redeem: RedeemService,
     private expiry: ExpiryService, private sms: SmsService, private billing: BillingService, private scheduler: SchedulerService,
+    private points: PointsService,
   ) {}
 
   // ---------------------------------------------------------------- dashboard & analytics
@@ -105,7 +107,34 @@ export class AdminController {
 
   // ---------------------------------------------------------------- customers
   @AdminOnly() @Get('customers')
-  customers(@Query('q') q = '') { return q.trim().length >= 2 ? this.admin.searchCustomers(q) : []; }
+  customers(@Query() q: Record<string, string>) {
+    return this.admin.listCustomers({ q: q.q, profession: q.profession, status: q.status, limit: Number(q.limit) || 25, offset: Number(q.offset) || 0 });
+  }
+
+  @AdminOnly('owner', 'ops') @Patch('customers/:id')
+  editCustomer(@CurrentAdmin() a: AdminCtx, @Param('id') id: string, @Body() body: unknown) {
+    return this.admin.updateCustomer(a.id, Number(id), parse(z.object({
+      name: z.string().trim().min(2).max(80).optional(), city: z.string().trim().max(80).nullable().optional(),
+      mobile: z.string().min(10).max(15).optional(), professions: z.array(z.string().min(1).max(40)).min(1).max(3).optional(),
+    }), body));
+  }
+
+  @AdminOnly('owner', 'ops') @Post('customers/:id/active')
+  customerActive(@CurrentAdmin() a: AdminCtx, @Param('id') id: string, @Body() body: unknown) {
+    const b = parse(z.object({ active: z.boolean(), note: z.string().trim().max(300).default('') }), body);
+    return this.admin.setCustomerActive(a.id, Number(id), b.active, b.note);
+  }
+
+  @AdminOnly('owner', 'ops') @Post('customers/:id/points')
+  customerPoints(@CurrentAdmin() a: AdminCtx, @Param('id') id: string, @Body() body: unknown) {
+    const b = parse(z.object({ shopId: z.number().int().positive(), action: z.enum(['add', 'deduct']), points: z.number().int().min(1).max(100000), reason: z.string().trim().min(3).max(200) }), body);
+    return this.points.adminAdjust(a.id, a.username, Number(id), b.shopId, b.action === 'add' ? b.points : -b.points, b.reason);
+  }
+
+  @AdminOnly('owner') @Delete('customers/:id')
+  deleteCustomer(@CurrentAdmin() a: AdminCtx, @Param('id') id: string, @Query('note') note = '') {
+    return this.admin.deleteCustomer(a.id, Number(id), note.slice(0, 300));
+  }
 
   @AdminOnly() @Get('customers/:id') customer(@Param('id') id: string) { return this.admin.customerDetail(Number(id)); }
 

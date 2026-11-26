@@ -10,7 +10,7 @@ import { readQr } from '../customer/qr';
 import { SMS, SmsService } from '../sms/sms.service';
 import { ShopCtx } from '../common/auth';
 import { ShopService } from '../shop/shop.service';
-import { bumpStats, IST_DAY_START, lockWallet, mixedRatesSql, worthPaiseSql, writeLedger } from './ledger';
+import { bumpStats, consumeLots, IST_DAY_START, lockWallet, mixedRatesSql, worthPaiseSql, writeLedger } from './ledger';
 import { MilestoneService } from '../customer/milestone.service';
 import { requireFeature } from '../billing/entitlements';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -35,13 +35,14 @@ export class PointsService {
 
     const r = await this.db.one(
       `SELECT u.id, u.name, u.mobile, c.profession, c.upi_id, c.upi_verified_name, c.lifetime_points, c.lifetime_value_paise,
-              w.balance_points, w.held_points, w.earned_points, w.redeemed_points, w.visits, w.blocked,
+              w.balance_points, w.held_points, w.earned_points, w.redeemed_points, w.visits, w.blocked, u.deactivated_at,
               ${worthPaiseSql('w')} AS worth_paise, ${mixedRatesSql('w')} AS mixed_rates
          FROM customers c JOIN users u ON u.id = c.user_id
          LEFT JOIN wallets w ON w.customer_id = c.user_id AND w.shop_id = $2
         WHERE c.user_id = $1`, [customerId, shopId],
     );
     if (!r) throw E.notFound('Customer');
+    if (r.deactivated_at) throw E.forbidden('CUSTOMER_INACTIVE', 'This customer account is switched off');
     const ms = await this.milestones.current(r);
     return {
       found: true as const,
@@ -84,7 +85,8 @@ export class PointsService {
       if (amountPaise < Number(cfg.min_bill_paise)) {
         throw E.bad('BELOW_MIN_BILL', `Minimum bill for points is ₹${Number(cfg.min_bill_paise) / 100}`);
       }
-      const cust = (await c.query('SELECT c.profession, c.professions, u.mobile, c.sms_on_earn FROM customers c JOIN users u ON u.id = c.user_id WHERE c.user_id = $1', [input.customerId])).rows[0];
+      const cust = (await c.query('SELECT c.profession, c.professions, u.mobile, c.sms_on_earn, u.deactivated_at FROM customers c JOIN users u ON u.id = c.user_id WHERE c.user_id = $1', [input.customerId])).rows[0];
+      if (cust?.deactivated_at) throw E.forbidden('CUSTOMER_INACTIVE', 'This customer account is switched off');
       if (!cust) throw E.notFound('Customer');
 
       // Live offer for this customer's profession. The exclusion constraint's GiST index answers this.
@@ -176,8 +178,9 @@ export class PointsService {
         }
       }
       const cfg = await this.shops.getConfig(shop.id, c);
-      const cust = (await c.query('SELECT c.profession, u.mobile, c.sms_on_earn FROM customers c JOIN users u ON u.id = c.user_id WHERE c.user_id = $1', [input.customerId])).rows[0];
+      const cust = (await c.query('SELECT c.profession, u.mobile, c.sms_on_earn, u.deactivated_at FROM customers c JOIN users u ON u.id = c.user_id WHERE c.user_id = $1', [input.customerId])).rows[0];
       if (!cust) throw E.notFound('Customer');
+      if (cust.deactivated_at) throw E.forbidden('CUSTOMER_INACTIVE', 'This customer account is switched off');
       const { w, created } = await lockWallet(c, input.customerId, shop.id, true);
       if (w.blocked) throw E.forbidden('CUSTOMER_BLOCKED', 'This customer is blocked at your shop');
       const out = await this.credit(c, {
@@ -195,7 +198,7 @@ export class PointsService {
   /** Shared credit path: lot + ledger + wallet + customer lifetime + daily stats. */
   private async credit(c: PoolClient, a: {
     shopId: number; customerId: number; wallet: { balance_points: number }; points: number; pointValuePaise: number; expiryDays: number | null;
-    type: 'earn_bill' | 'earn_manual'; prefix: 'ER' | 'MN'; billId?: number; createdBy: number; reason?: string; remarks?: string | null;
+    type: 'earn_bill' | 'earn_manual' | 'admin_add'; prefix: 'ER' | 'MN' | 'AD'; billId?: number; createdBy: number | null; reason?: string; remarks?: string | null;
     purchasePaise: number; isNewCustomer: boolean;
   }) {
     const valuePaise = a.points * a.pointValuePaise;
@@ -250,6 +253,42 @@ export class PointsService {
     const name = shop.name.length > 28 ? shop.name.slice(0, 27) + '…' : shop.name;
     if (firstVisit) await this.sms.enqueue(c, cust.mobile, 'invite', SMS.invite(name, points), null);
     else if (cust.sms_on_earn) await this.sms.enqueue(c, cust.mobile, 'earned', SMS.earned(name, points, balance), null);
+  }
+
+  // ------------------------------------------------------------------ Super Admin: add or take points by hand
+  /**
+   * `points` > 0 adds, < 0 takes away (oldest points first, never points on hold for a payout).
+   * Works on a points card the customer already has at that shop. Recorded in the ledger as an admin entry.
+   */
+  async adminAdjust(adminId: number, adminName: string, customerId: number, shopId: number, points: number, reason: string) {
+    if (!Number.isInteger(points) || points === 0 || Math.abs(points) > 100_000) throw E.bad('BAD_POINTS', 'Enter points between 1 and 100,000');
+    return this.db.tx(async (c) => {
+      const cust = (await c.query('SELECT 1 FROM customers c JOIN users u ON u.id = c.user_id WHERE c.user_id = $1 AND u.deleted_at IS NULL', [customerId])).rows[0];
+      if (!cust) throw E.notFound('Customer');
+      const { w } = await lockWallet(c, customerId, shopId, false);
+      const cfg = await this.shops.getConfig(shopId, c);
+      const remarks = `By Mere Points admin ${adminName}`;
+      let balanceAfter: number;
+      let entryId: string;
+      if (points > 0) {
+        const out = await this.credit(c, {
+          shopId, customerId, wallet: w, points, pointValuePaise: cfg.point_value_paise, expiryDays: cfg.expiry_days,
+          type: 'admin_add', prefix: 'AD', createdBy: null, reason, remarks, purchasePaise: 0, isNewCustomer: false,
+        });
+        balanceAfter = out.balanceAfter;
+        entryId = out.entry.public_id;
+      } else {
+        const take = -points;
+        if (take > w.balance_points) throw E.bad('NOT_ENOUGH_POINTS', `Only ${w.balance_points} points can be taken here${w.held_points ? ` (${w.held_points} are on hold for a payout)` : ''}`);
+        const { valuePaise } = await consumeLots(c, customerId, shopId, take);
+        balanceAfter = w.balance_points - take;
+        await c.query('UPDATE wallets SET balance_points = $3 WHERE customer_id = $1 AND shop_id = $2', [customerId, shopId, balanceAfter]);
+        const e = await writeLedger(c, { prefix: 'AD', shopId, customerId, type: 'admin_deduct', points: -take, valuePaise: -valuePaise, balanceAfter, reason, remarks, createdBy: null });
+        entryId = e.public_id;
+      }
+      await this.shops.audit(c, { admin: adminId }, shopId, points > 0 ? 'points.admin_add' : 'points.admin_deduct', 'customer', customerId, { points, reason });
+      return { entryId, points, balance: balanceAfter };
+    });
   }
 
   // ------------------------------------------------------------------ reverse

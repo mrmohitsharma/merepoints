@@ -83,6 +83,8 @@ export const LEDGER: Record<string, { label: string; tone: 'ok' | 'bad' | 'muted
   redeem_release: { label: 'Points returned', tone: 'muted' },
   redeem_confirm: { label: 'Received', tone: 'ok' },
   expiry: { label: 'Expired', tone: 'muted' },
+  admin_add: { label: 'Added by Mere Points', tone: 'brand' },
+  admin_deduct: { label: 'Taken by Mere Points', tone: 'bad' },
 };
 
 export const REDEMPTION: Record<string, { label: string; tone: 'ok' | 'bad' | 'muted' | 'brand' | 'amber' }> = {

@@ -65,6 +65,7 @@ function client(portal: Portal) {
     post: <T = any>(path: string, body: unknown = {}, headers?: Record<string, string>) => request<T>(portal, path, { method: 'POST', body, headers }),
     put: <T = any>(path: string, body: unknown) => request<T>(portal, path, { method: 'PUT', body }),
     patch: <T = any>(path: string, body: unknown) => request<T>(portal, path, { method: 'PATCH', body }),
+    del: <T = any>(path: string, query?: Opts['query']) => request<T>(portal, path, { method: 'DELETE', query }),
     raw: (path: string, query?: Opts['query']) => request<Response>(portal, path, { query, raw: true }),
   };
 }

@@ -1,24 +1,41 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
-import { Async, Badge, Card, Initials, MapBadge, PageHeader, Stat, Table, useAsync } from '@/components/ui';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ArrowLeft, Coins, Pencil, Power, Trash2 } from 'lucide-react';
+import { Async, Badge, Button, Card, Initials, MapBadge, PageHeader, Stat, Table, useAsync } from '@/components/ui';
 import { adminApi } from '@/lib/api';
+import { useAdmin } from '@/lib/admin';
+import { CustomerLite, DeleteDialog, EditCustomerDialog, PointsDialog, StatusDialog } from '@/components/customer-admin';
 import { ago, date, dateTime, inr, LEDGER, mobile, pts, PROFESSIONS, REDEMPTION } from '@/lib/format';
 
 function Detail() {
   const id = Number(useSearchParams().get('id'));
+  const router = useRouter();
+  const { can } = useAdmin();
   const d = useAsync(() => adminApi.get(`admin/customers/${id}`), [id]);
+  const [dialog, setDialog] = useState<{ kind: 'edit' | 'points' | 'status' | 'delete'; shopId?: number } | null>(null);
   return (
     <>
       <Link href="/admin/customers/" className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-brand"><ArrowLeft size={16} /> Customers</Link>
       <Async state={d}>
         {({ customer: c, wallets, ledger, redemptions }: any) => (
           <>
-            <PageHeader title={<span className="flex items-center gap-3"><Initials name={c.name} size={44} />{c.name}</span>}
-              sub={`${mobile(c.mobile)} · ${PROFESSIONS[c.profession]}${c.city ? ' · ' + c.city : ''} · joined ${date(c.created_at)} · app language ${c.language}`} />
+            <PageHeader title={<span className="flex items-center gap-3"><Initials name={c.name} size={44} />{c.name}{c.deactivated_at && <Badge tone="bad">Inactive</Badge>}</span>}
+              sub={`${mobile(c.mobile)} · ${(c.professions?.length ? c.professions : [c.profession]).map((p: string) => PROFESSIONS[p] ?? p).join(', ')}${c.city ? ' · ' + c.city : ''} · joined ${date(c.created_at)} · app language ${c.language}`}
+              actions={can('owner', 'ops') ? (
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="secondary" onClick={() => setDialog({ kind: 'edit' })}><Pencil size={16} /> Edit</Button>
+                  <Button variant="secondary" onClick={() => setDialog({ kind: 'points' })}><Coins size={16} /> Add / deduct points</Button>
+                  <Button variant="secondary" onClick={() => setDialog({ kind: 'status' })}><Power size={16} /> {c.deactivated_at ? 'Make active' : 'Make inactive'}</Button>
+                  {can('owner') && <Button variant="danger" onClick={() => setDialog({ kind: 'delete' })}><Trash2 size={16} /> Delete</Button>}
+                </div>
+              ) : undefined} />
+            {dialog?.kind === 'edit' && <EditCustomerDialog c={c as CustomerLite} onClose={() => setDialog(null)} onSaved={() => d.reload()} />}
+            {dialog?.kind === 'points' && <PointsDialog c={c as CustomerLite} shopId={dialog.shopId} onClose={() => setDialog(null)} onDone={() => d.reload()} />}
+            {dialog?.kind === 'status' && <StatusDialog c={c as CustomerLite} onClose={() => setDialog(null)} onDone={() => d.reload()} />}
+            {dialog?.kind === 'delete' && <DeleteDialog c={c as CustomerLite} onClose={() => setDialog(null)} onDone={() => router.push('/admin/customers/')} />}
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
               <Stat label="Shops" value={wallets.length} />
               <Stat label="Points now (all shops)" value={pts(wallets.reduce((a: number, w: any) => a + w.balance_points, 0))} />
@@ -33,6 +50,7 @@ function Detail() {
                 { key: 'h', label: 'On hold', align: 'right', render: (w: any) => pts(w.held_points) },
                 { key: 'l', label: 'Last visit', render: (w: any) => <span className="text-muted">{ago(w.last_visit_at)}</span> },
                 { key: 'x', label: '', render: (w: any) => w.blocked ? <Badge tone="bad">Blocked by shop</Badge> : null },
+                { key: 'e', label: '', render: (w: any) => can('owner', 'ops') ? <Button size="sm" variant="secondary" onClick={() => setDialog({ kind: 'points', shopId: w.shop_id })}>Add / deduct</Button> : null },
               ]} />
             </Card>
             <div className="mt-6 grid gap-6 lg:grid-cols-2">

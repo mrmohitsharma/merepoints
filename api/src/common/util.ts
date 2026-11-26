@@ -5,7 +5,7 @@ import { E } from './errors';
 const ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'; // no 0/O/1/I confusion when read out loud
 
 /** Human-friendly public reference, e.g. VP-ER-7K2M9Q. Unique constraint backs it. */
-export function publicId(prefix: 'ER' | 'MN' | 'RD' | 'RV' | 'RH' | 'RC' | 'RL' | 'EX'): string {
+export function publicId(prefix: 'ER' | 'MN' | 'RD' | 'RV' | 'RH' | 'RC' | 'RL' | 'EX' | 'AD'): string {
   let s = '';
   for (let i = 0; i < 7; i++) s += ALPHABET[randomInt(ALPHABET.length)];
   return `VP-${prefix}-${s}`;

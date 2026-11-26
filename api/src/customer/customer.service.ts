@@ -5,6 +5,7 @@ import { Db } from '../db/db.service';
 import { E } from '../common/errors';
 import { MilestoneService } from './milestone.service';
 import { makeQr } from './qr';
+import { eraseCustomerAccount } from './erase';
 import { PerksService } from '../perks/perks.service';
 import { mixedRatesSql, worthPaiseSql } from '../points/ledger';
 import { RedeemService } from '../redeem/redeem.service';
@@ -272,17 +273,7 @@ export class CustomerService {
   async deleteAccount(userId: number, confirm: string) {
     if (confirm !== 'DELETE') throw E.bad('CONFIRM', 'Type DELETE to confirm');
     return this.db.tx(async (c) => {
-      const owner = (await c.query(`SELECT 1 FROM shops WHERE owner_user_id = $1 AND status <> 'rejected' LIMIT 1`, [userId])).rows[0];
-      if (owner) throw E.bad('SHOP_OWNER', 'You own a shop on Mere Points. Write to support to close the shop first.');
-      const open = (await c.query(`SELECT count(*)::int AS n FROM redemptions WHERE customer_id = $1 AND status IN ('held','paid','disputed')`, [userId])).rows[0].n;
-      if (open) throw E.bad('OPEN_PAYOUT', 'You have a payout in progress. Finish it (Received / Not received) before deleting your account.');
-      const u = (await c.query(`UPDATE users SET mobile = 'x' || id, name = NULL, email = NULL, google_sub = NULL, password_hash = NULL, deleted_at = now()
-                                 WHERE id = $1 AND deleted_at IS NULL RETURNING mobile`, [userId])).rows[0];
-      if (!u) throw E.notFound('Account');
-      await c.query(`UPDATE customers SET city = NULL, upi_id = NULL, upi_verified_name = NULL, photo_url = NULL, profession = 'other', professions = '{other}', area = NULL, state = NULL, pincode = NULL, lat = NULL, lng = NULL, sms_on_earn = FALSE WHERE user_id = $1`, [userId]);
-      await c.query(`DELETE FROM shop_members WHERE user_id = $1`, [userId]);
-      await c.query(`DELETE FROM device_tokens WHERE user_id = $1`, [userId]);
-      await c.query(`INSERT INTO audit_log (actor_id, action, entity, entity_id) VALUES ($1, 'account.delete', 'user', $2)`, [userId, String(userId)]);
+      await eraseCustomerAccount(c, userId, { userId }, 'account.delete');
       return { deleted: true };
     });
   }

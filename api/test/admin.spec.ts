@@ -196,9 +196,9 @@ describe('admin portal data', () => {
     expect(d.totals.points_issued).toBeGreaterThanOrEqual(500);
 
     const found = (await http().get('/v1/admin/customers?q=suresh').set(auth(owner.token)).expect(200)).body;
-    expect(found[0].name).toBe('Suresh Lookup');
+    expect(found.rows[0].name).toBe('Suresh Lookup');
     const byMobile = (await http().get(`/v1/admin/customers?q=${c.mobile.slice(-6)}`).set(auth(owner.token)).expect(200)).body;
-    expect(byMobile[0].id).toBe(c.userId);
+    expect(byMobile.rows[0].id).toBe(c.userId);
     const cd = (await http().get(`/v1/admin/customers/${c.userId}`).set(auth(owner.token)).expect(200)).body;
     expect(cd.wallets[0].balance_points).toBe(500);
 

@@ -71,8 +71,9 @@ export class AuthGuard implements CanActivate {
     }
     if (adminRoles) throw E.forbidden('ADMIN_ONLY', 'Only Mere Points admins can do this');
     if (payload.kind && payload.kind !== 'access') throw E.unauth();
-    const user = await this.db.one<{ id: number; is_super_admin: boolean }>('SELECT id, is_super_admin FROM users WHERE id = $1 AND deleted_at IS NULL', [payload.sub]);
+    const user = await this.db.one<{ id: number; is_super_admin: boolean; deactivated_at: Date | null }>('SELECT id, is_super_admin, deactivated_at FROM users WHERE id = $1 AND deleted_at IS NULL', [payload.sub]);
     if (!user) throw E.unauth();
+    if (user.deactivated_at) throw E.forbidden('ACCOUNT_INACTIVE', 'Your account is switched off. Please contact Mere Points support.');
     req.user = { id: user.id, isSuperAdmin: user.is_super_admin } satisfies AuthUser;
 
     const shopReq = this.reflector.getAllAndOverride<ShopRequirement>(SHOP, targets);

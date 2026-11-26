@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { Db } from '../db/db.service';
 import { E } from '../common/errors';
 import { ShopService } from '../shop/shop.service';
+import { eraseCustomerAccount } from '../customer/erase';
+import { normalizeMobile } from '../common/util';
 import { MilestoneService } from '../customer/milestone.service';
 import { BillingService } from '../billing/billing.service';
 import { billingStateSql } from '../billing/state';
@@ -232,23 +234,90 @@ export class AdminService {
   disputes() { return this.redemptions('disputed'); }
 
   // ================================================================ customers
-  searchCustomers(q: string) {
-    const digits = q.replace(/\D/g, '');
+  /** All customers (carpenters, site experts and so on), newest first, with filters and paging. */
+  async listCustomers(f: { q?: string; profession?: string; status?: string; limit?: number; offset?: number }) {
     const params: unknown[] = [];
-    let where: string;
-    if (digits.length >= 4) { params.push(`%${digits.slice(-10)}%`); where = `u.mobile LIKE $1`; }
-    else { params.push(`%${q.trim().toLowerCase()}%`); where = `lower(u.name) LIKE $1`; }
-    return this.db.many(
-      `SELECT u.id, u.name, u.mobile, c.profession, c.city, c.lifetime_points, c.created_at,
+    const p = (v: unknown) => { params.push(v); return `$${params.length}`; };
+    const where = ['u.deleted_at IS NULL'];
+    const q = (f.q ?? '').trim();
+    if (q) {
+      const digits = q.replace(/\D/g, '');
+      if (digits.length >= 4) where.push(`u.mobile LIKE ${p(`%${digits.slice(-10)}%`)}`);
+      else where.push(`lower(u.name) LIKE ${p(`%${q.toLowerCase()}%`)}`);
+    }
+    if (f.profession) where.push(`${p(f.profession)}::text = ANY(c.professions)`);
+    if (f.status === 'active') where.push('u.deactivated_at IS NULL');
+    if (f.status === 'inactive') where.push('u.deactivated_at IS NOT NULL');
+    const from = `FROM customers c JOIN users u ON u.id = c.user_id WHERE ${where.join(' AND ')}`;
+    const total = (await this.db.one(`SELECT count(*)::int AS n ${from}`, params))!.n as number;
+    const limit = Math.min(Math.max(f.limit ?? 25, 1), 100);
+    const offset = Math.max(f.offset ?? 0, 0);
+    const rows = await this.db.many(
+      `SELECT u.id, u.name, u.mobile, u.deactivated_at, c.profession, c.professions, c.city, c.lifetime_points, c.created_at,
               (SELECT count(*)::int FROM wallets w WHERE w.customer_id = u.id) AS shops,
-              (SELECT COALESCE(sum(balance_points),0)::bigint FROM wallets w WHERE w.customer_id = u.id) AS balance
-         FROM customers c JOIN users u ON u.id = c.user_id WHERE ${where} ORDER BY c.created_at DESC LIMIT 50`, params,
+              (SELECT COALESCE(sum(balance_points),0)::bigint FROM wallets w WHERE w.customer_id = u.id) AS balance,
+              (SELECT max(last_visit_at) FROM wallets w WHERE w.customer_id = u.id) AS last_visit_at
+         ${from} ORDER BY c.created_at DESC, u.id DESC LIMIT ${limit} OFFSET ${offset}`, params,
     );
+    return { rows: rows.map((r: any) => ({ ...r, balance: Number(r.balance) })), total };
+  }
+
+  async updateCustomer(adminId: number, id: number, p: { name?: string; city?: string | null; mobile?: string; professions?: string[] }) {
+    return this.db.tx(async (c) => {
+      const cur = (await c.query(
+        `SELECT u.name, u.mobile, c.city, c.professions FROM customers c JOIN users u ON u.id = c.user_id WHERE u.id = $1 AND u.deleted_at IS NULL FOR UPDATE OF u`, [id])).rows[0];
+      if (!cur) throw E.notFound('Customer');
+      if (p.name !== undefined) await c.query('UPDATE users SET name = $2 WHERE id = $1', [id, p.name]);
+      if (p.mobile !== undefined) {
+        const mobile = normalizeMobile(p.mobile);
+        if (mobile !== cur.mobile) {
+          const taken = (await c.query('SELECT 1 FROM users WHERE mobile = $1 AND id <> $2', [mobile, id])).rows[0];
+          if (taken) throw E.conflict('MOBILE_TAKEN', 'Another account already uses this mobile number');
+          await c.query('UPDATE users SET mobile = $2 WHERE id = $1', [id, mobile]);
+        }
+      }
+      if (p.city !== undefined) await c.query('UPDATE customers SET city = $2 WHERE user_id = $1', [id, p.city || null]);
+      if (p.professions) {
+        const list = [...new Set(p.professions)];
+        if (!list.length || list.length > 3) throw E.bad('BAD_WORK_TYPE', 'Pick 1 to 3 work types');
+        const known = (await c.query('SELECT count(*)::int AS n FROM professions WHERE code = ANY($1)', [list])).rows[0].n;
+        if (known !== list.length) throw E.bad('BAD_WORK_TYPE', 'Pick work types from the list');
+        await c.query('UPDATE customers SET profession = $2, professions = $3 WHERE user_id = $1', [id, list[0], list]);
+      }
+      await this.shops.audit(c, A(adminId), null, 'customer.admin_edit', 'user', id, { before: cur, after: p });
+      return { ok: true };
+    });
+  }
+
+  /** Switch a customer off (cannot log in or earn) or back on. Points stay as they are. */
+  async setCustomerActive(adminId: number, id: number, active: boolean, note: string) {
+    return this.db.tx(async (c) => {
+      const u = (await c.query('SELECT id, is_super_admin FROM users WHERE id = $1 AND deleted_at IS NULL FOR UPDATE', [id])).rows[0];
+      if (!u || !(await c.query('SELECT 1 FROM customers WHERE user_id = $1', [id])).rows[0]) throw E.notFound('Customer');
+      if (!active) {
+        const owns = (await c.query(`SELECT 1 FROM shops WHERE owner_user_id = $1 AND status <> 'rejected' LIMIT 1`, [id])).rows[0];
+        if (u.is_super_admin || owns) throw E.bad('SHOP_OWNER', 'This person also owns a shop. Switch the shop off from the Shops page instead.');
+      }
+      await c.query('UPDATE users SET deactivated_at = CASE WHEN $2 THEN NULL ELSE COALESCE(deactivated_at, now()) END WHERE id = $1', [id, active]);
+      await this.shops.audit(c, A(adminId), null, active ? 'customer.activate' : 'customer.deactivate', 'user', id, { note });
+      return { active };
+    });
+  }
+
+  /** Close a customer account for good (same as the customer deleting it themselves). */
+  async deleteCustomer(adminId: number, id: number, note: string) {
+    return this.db.tx(async (c) => {
+      const u = (await c.query('SELECT id, is_super_admin FROM users WHERE id = $1 AND deleted_at IS NULL FOR UPDATE', [id])).rows[0];
+      if (!u || u.is_super_admin || !(await c.query('SELECT 1 FROM customers WHERE user_id = $1', [id])).rows[0]) throw E.notFound('Customer');
+      await eraseCustomerAccount(c, id, { adminId }, 'customer.admin_delete');
+      await this.shops.audit(c, A(adminId), null, 'customer.admin_delete_note', 'user', id, { note });
+      return { deleted: true };
+    });
   }
 
   async customerDetail(id: number) {
     const c = await this.db.one(
-      `SELECT u.id, u.name, u.mobile, u.email, u.created_at, c.profession, c.city, c.upi_id, c.language, c.lifetime_points,
+      `SELECT u.id, u.name, u.mobile, u.email, u.created_at, u.deactivated_at, c.profession, c.professions, c.city, c.upi_id, c.language, c.lifetime_points,
               c.lifetime_value_paise / 100.0 AS lifetime_value_rupees
          FROM customers c JOIN users u ON u.id = c.user_id WHERE u.id = $1`, [id],
     );

@@ -33,6 +33,10 @@ class HistoryRow extends StatelessWidget {
         title = 'Entry reversed by shop';
       case 'expiry':
         title = 'Points expired';
+      case 'admin_add':
+        title = 'Added by Mere Points · ${e['reason'] ?? ''}';
+      case 'admin_deduct':
+        title = 'Taken by Mere Points · ${e['reason'] ?? ''}';
       default:
         title = type;
     }

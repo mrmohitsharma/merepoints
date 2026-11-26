@@ -60,7 +60,7 @@ export class NotificationsService {
     if (f.customerId) where.push(`w.customer_id = ${p(f.customerId)}::bigint`);
     if (f.mobile) where.push(`u.mobile = ${p(normalizeMobile(f.mobile))}`);
     const from = `FROM wallets w JOIN customers c ON c.user_id = w.customer_id JOIN users u ON u.id = w.customer_id
-      WHERE w.shop_id = $1 AND NOT w.blocked AND u.deleted_at IS NULL ${where.map((x) => `AND ${x}`).join(' ')}`;
+      WHERE w.shop_id = $1 AND NOT w.blocked AND u.deleted_at IS NULL AND u.deactivated_at IS NULL ${where.map((x) => `AND ${x}`).join(' ')}`;
     return { from, params };
   }
 

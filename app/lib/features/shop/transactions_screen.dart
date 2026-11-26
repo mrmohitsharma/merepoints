@@ -8,7 +8,7 @@ import '../../widgets/common.dart';
 
 const _shortCodes = {
   'earn_bill': 'BILL', 'earn_manual': 'MAN', 'reversal': 'REV', 'redeem_hold': 'OUT',
-  'redeem_release': 'BACK', 'redeem_confirm': 'OK', 'expiry': 'EXP',
+  'redeem_release': 'BACK', 'redeem_confirm': 'OK', 'expiry': 'EXP', 'admin_add': 'ADM', 'admin_deduct': 'ADM',
 };
 
 const ledgerLabels = {
@@ -19,6 +19,8 @@ const ledgerLabels = {
   'redeem_release': 'Returned',
   'redeem_confirm': 'Received',
   'expiry': 'Expired',
+  'admin_add': 'Added by Mere Points',
+  'admin_deduct': 'Taken by Mere Points',
 };
 
 class LedgerRow extends StatelessWidget {

@@ -2,11 +2,12 @@
 
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { ArrowLeft, CalendarPlus, CheckCircle2, MessageSquare, PauseCircle, XCircle } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ArrowLeft, CalendarPlus, CheckCircle2, MessageSquare, PauseCircle, Pencil, Trash2, XCircle } from 'lucide-react';
 import { Async, Badge, Button, Card, Field, Input, MapBadge, MapPin, Modal, Note, PageHeader, Select, Stat, Table, Textarea, useAsync, useToast } from '@/components/ui';
 import { adminApi } from '@/lib/api';
 import { useAdmin } from '@/lib/admin';
+import { DeleteShopDialog, EditShopDialog } from '@/components/shop-admin';
 import { limitText, LIMIT_LABELS, Limits } from '@/lib/packages';
 import { actionLabel, BILLING, date, dateTime, inr, inrShort, mobile, pts, SHOP_STATUS } from '@/lib/format';
 
@@ -15,6 +16,8 @@ type Action = null | { kind: 'approved' | 'rejected' | 'suspended' } | { kind: '
 function Detail() {
   const id = Number(useSearchParams().get('id'));
   const { can, refreshCounts } = useAdmin();
+  const router = useRouter();
+  const [dlg, setDlg] = useState<'edit' | 'delete' | null>(null);
   const toast = useToast();
   const d = useAsync(() => adminApi.get(`admin/shops/${id}`), [id]);
   const plans = useAsync(() => (can('owner', 'ops') ? adminApi.get('admin/plans') : Promise.resolve(null)));
@@ -58,6 +61,8 @@ function Detail() {
               sub={`${s.address_line}${s.landmark ? ', ' + s.landmark : ''}, ${s.city}, ${s.state} ${s.pincode} · registered ${date(s.created_at)}`}
               actions={can('owner', 'ops') && (
                 <>
+                  <Button variant="secondary" onClick={() => setDlg('edit')}><Pencil size={16} /> Edit details</Button>
+                  {can('owner') && <Button variant="secondary" onClick={() => setDlg('delete')}><Trash2 size={16} className="text-bad" /> Delete</Button>}
                   {s.status !== 'approved' && <Button onClick={() => open({ kind: 'approved' })}><CheckCircle2 size={16} /> Approve</Button>}
                   {s.status === 'pending' && <Button variant="secondary" onClick={() => open({ kind: 'rejected' })}><XCircle size={16} /> Reject</Button>}
                   {s.status === 'approved' && (
@@ -70,6 +75,8 @@ function Detail() {
                 </>
               )}
             />
+            {dlg === 'edit' && <EditShopDialog s={s} onClose={() => setDlg(null)} onSaved={() => d.reload(true)} />}
+            {dlg === 'delete' && <DeleteShopDialog s={s} onClose={() => setDlg(null)} onDone={() => { refreshCounts(); router.push('/admin/shops/'); }} />}
             {s.status_reason && <div className="mb-4"><Note tone="amber">Reason on record: {s.status_reason}</Note></div>}
             {nearbyShops.length > 0 && (
               <div className="mb-4"><Note tone="amber"><b>Possible duplicate:</b> {nearbyShops.map((n: any) => <Link key={n.id} className="underline" href={`/admin/shop/?id=${n.id}`}>{n.name} ({n.meters} m away, {SHOP_STATUS[n.status]?.label})</Link>).reduce((a: any[], x: any) => [...a, a.length ? ', ' : '', x], [])}</Note></div>

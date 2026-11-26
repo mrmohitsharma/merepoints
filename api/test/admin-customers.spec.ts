@@ -80,3 +80,30 @@ describe('Super Admin customer management', () => {
     expect(list.find((r: any) => r.id === c.userId)).toBeUndefined();
   });
 });
+
+describe('Super Admin shop edit and delete', () => {
+  it('edits shop details', async () => {
+    const shop = await makeShop(owner);
+    await http().patch(`/v1/admin/shops/${shop.shopId}`).set(auth(owner.token)).send({ name: 'Renamed Hardware', phone: '9876500000', city: 'Jaipur', pincode: '302001', gstNumber: '08ABCDE1234F1Z5', ownerName: 'New Owner Name' }).expect(200);
+    const d = (await http().get(`/v1/admin/shops/${shop.shopId}`).set(auth(owner.token)).expect(200)).body.shop;
+    expect(d).toMatchObject({ name: 'Renamed Hardware', phone: '9876500000', city: 'Jaipur', pincode: '302001', gst_number: '08ABCDE1234F1Z5', owner_name: 'New Owner Name' });
+    expect((await http().patch(`/v1/admin/shops/${shop.shopId}`).set(auth(owner.token)).send({ pincode: '12' })).status).toBe(400);
+    const support = await makeAdmin('support');
+    await http().patch(`/v1/admin/shops/${shop.shopId}`).set(auth(support.token)).send({ name: 'Nope' }).expect(403);
+  });
+
+  it('deletes a never-used shop, refuses one with customers', async () => {
+    const used = await makeShop(owner);
+    const c = await makeCustomer();
+    await bill(used.owner.token, used.shopId, c.userId, 500, 'DS-1').expect(201);
+    const r = await http().delete(`/v1/admin/shops/${used.shopId}`).set(auth(owner.token));
+    expect(r.status).toBe(400);
+    expect(r.body.code).toBe('SHOP_HAS_HISTORY');
+    const unused = await makeShop(owner);
+    const ops = await makeAdmin('ops');
+    await http().delete(`/v1/admin/shops/${unused.shopId}`).set(auth(ops.token)).expect(403);
+    await http().delete(`/v1/admin/shops/${unused.shopId}`).query({ note: 'Duplicate sign-up' }).set(auth(owner.token)).expect(200);
+    await http().get(`/v1/admin/shops/${unused.shopId}`).set(auth(owner.token)).expect(404);
+    await assertLedgerInvariants();
+  });
+});

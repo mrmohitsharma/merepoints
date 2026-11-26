@@ -79,6 +79,22 @@ export class AdminController {
     return this.admin.setShopStatus(a.id, Number(id), b.status, b.reason);
   }
 
+  @AdminOnly('owner', 'ops') @Patch('shops/:id')
+  editShop(@CurrentAdmin() a: AdminCtx, @Param('id') id: string, @Body() body: unknown) {
+    const t = z.string().trim();
+    return this.admin.updateShop(a.id, Number(id), parse(z.object({
+      name: t.min(2).max(80).optional(), phone: z.string().regex(/^\d{10,15}$/).nullable().optional(), email: z.string().email().max(120).nullable().optional(),
+      gstNumber: z.string().regex(/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/).nullable().optional(),
+      addressLine: t.min(3).max(200).optional(), landmark: t.max(120).nullable().optional(), city: t.min(2).max(80).optional(), state: t.min(2).max(80).optional(),
+      pincode: z.string().regex(/^\d{6}$/).optional(), brandsNote: t.max(300).nullable().optional(), categories: z.array(z.string().min(1).max(20)).max(10).optional(), ownerName: t.min(2).max(80).optional(),
+    }), body));
+  }
+
+  @AdminOnly('owner') @Delete('shops/:id')
+  deleteShop(@CurrentAdmin() a: AdminCtx, @Param('id') id: string, @Query('note') note = '') {
+    return this.admin.deleteShop(a.id, Number(id), note.slice(0, 300));
+  }
+
   @AdminOnly('owner', 'ops') @Post('shops/:id/sms-credits')
   smsCredits(@CurrentAdmin() a: AdminCtx, @Param('id') id: string, @Body() body: unknown) {
     const b = parse(z.object({ count: z.number().int().positive().max(100_000), note: z.string().max(200).optional() }), body);

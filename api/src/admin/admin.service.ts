@@ -119,6 +119,61 @@ export class AdminService {
     });
   }
 
+  /** Fix a shop's details (name, contact, address, GST, categories, owner name). Location pin and loyalty rules are not touched. */
+  async updateShop(adminId: number, shopId: number, p: {
+    name?: string; phone?: string | null; email?: string | null; gstNumber?: string | null; addressLine?: string; landmark?: string | null;
+    city?: string; state?: string; pincode?: string; brandsNote?: string | null; categories?: string[]; ownerName?: string;
+  }) {
+    const cols: Record<string, string> = {
+      name: 'name', phone: 'phone', email: 'email', gstNumber: 'gst_number', addressLine: 'address_line', landmark: 'landmark',
+      city: 'city', state: 'state', pincode: 'pincode', brandsNote: 'brands_note',
+    };
+    const sets: string[] = [], vals: unknown[] = [shopId];
+    for (const [k, col] of Object.entries(cols)) {
+      const v = (p as any)[k];
+      if (v !== undefined) { vals.push(v === '' ? null : v); sets.push(`${col} = $${vals.length}`); }
+    }
+    return this.db.tx(async (c) => {
+      const cur = (await c.query('SELECT name, phone, email, gst_number, address_line, landmark, city, state, pincode, brands_note, owner_user_id FROM shops WHERE id = $1 FOR UPDATE', [shopId])).rows[0];
+      if (!cur) throw E.notFound('Shop');
+      if (sets.length) await c.query(`UPDATE shops SET ${sets.join(', ')} WHERE id = $1`, vals);
+      if (p.ownerName) await c.query('UPDATE users SET name = $2 WHERE id = $1', [cur.owner_user_id, p.ownerName]);
+      if (p.categories) {
+        const list = [...new Set(p.categories)];
+        const known = (await c.query('SELECT count(*)::int AS n FROM categories WHERE code = ANY($1)', [list])).rows[0].n;
+        if (!list.length || known !== list.length) throw E.bad('BAD_CATEGORY', 'Pick shop categories from the list');
+        await c.query('DELETE FROM shop_categories WHERE shop_id = $1', [shopId]);
+        await c.query('INSERT INTO shop_categories (shop_id, category) SELECT $1, code FROM categories WHERE code = ANY($2)', [shopId, list]);
+      }
+      await this.shops.audit(c, A(adminId), shopId, 'shop.admin_edit', 'shop', shopId, { before: cur, after: p });
+      return { ok: true };
+    });
+  }
+
+  /**
+   * Delete a shop that was never used (wrong or duplicate sign-up). A shop with customers, bills, payouts, ads or paid
+   * invoices keeps its records, so it can only be suspended.
+   */
+  async deleteShop(adminId: number, shopId: number, note: string) {
+    return this.db.tx(async (c) => {
+      const s = (await c.query('SELECT id, name, owner_user_id FROM shops WHERE id = $1 FOR UPDATE', [shopId])).rows[0];
+      if (!s) throw E.notFound('Shop');
+      const used = (await c.query(
+        `SELECT (SELECT count(*) FROM wallets WHERE shop_id = $1) + (SELECT count(*) FROM bills WHERE shop_id = $1) + (SELECT count(*) FROM ledger_entries WHERE shop_id = $1)
+              + (SELECT count(*) FROM redemptions WHERE shop_id = $1) + (SELECT count(*) FROM ads WHERE shop_id = $1 OR link_shop_id = $1)
+              + (SELECT count(*) FROM payments WHERE shop_id = $1 AND status = 'paid') AS n`, [shopId])).rows[0].n;
+      if (Number(used) > 0) throw E.bad('SHOP_HAS_HISTORY', 'This shop has customers, bills or payments on record, so it cannot be deleted. Suspend it instead.');
+      await c.query('UPDATE shops SET current_config_id = NULL WHERE id = $1', [shopId]);
+      await c.query('DELETE FROM notification_recipients WHERE notification_id IN (SELECT id FROM notifications WHERE shop_id = $1)', [shopId]);
+      for (const t of ['notifications', 'sms_outbox', 'shop_daily_stats', 'goal_awards', 'shop_goals', 'shop_levels', 'shop_addon_credits', 'shop_subscriptions', 'payments', 'offers', 'products', 'shop_members', 'loyalty_configs', 'shop_categories']) {
+        await c.query(`DELETE FROM ${t} WHERE shop_id = $1`, [shopId]);
+      }
+      await c.query('DELETE FROM shops WHERE id = $1', [shopId]);
+      await this.shops.audit(c, A(adminId), null, 'shop.admin_delete', 'shop', shopId, { name: s.name, owner: s.owner_user_id, note });
+      return { deleted: true };
+    });
+  }
+
   async addSmsCredits(adminId: number, shopId: number, count: number, note?: string) {
     return this.db.tx(async (c) => {
       const r = (await c.query('UPDATE shops SET sms_balance = sms_balance + $2 WHERE id = $1 RETURNING sms_balance', [shopId, count])).rows[0];

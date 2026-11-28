@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { AlertTriangle, Award, ClipboardList, CreditCard, LayoutDashboard, Loader2, Package, Settings, Store, Tags, UserCog, Users, Megaphone, HardHat } from 'lucide-react';
+import { AlertTriangle, ArrowLeftRight, Award, ClipboardList, CreditCard, LayoutDashboard, Loader2, Package, Settings, Store, Tags, UserCog, Users, Megaphone, HardHat } from 'lucide-react';
 import { Shell } from '@/components/shell';
 import { adminApi, API_URL, session } from '@/lib/api';
 import { loadProfessions } from '@/lib/format';
@@ -38,6 +38,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { href: '/admin/', label: 'Dashboard', icon: LayoutDashboard, roles: ['owner', 'ops', 'support'] },
     { href: '/admin/shops/', label: 'Shops', icon: Store, badge: counts.pending, roles: ['owner', 'ops', 'support'] },
     { href: '/admin/disputes/', label: 'Disputes & payouts', icon: AlertTriangle, badge: counts.disputes, roles: ['owner', 'ops', 'support'] },
+    { href: '/admin/transactions/', label: 'Transactions', icon: ArrowLeftRight, roles: ['owner', 'ops', 'support'] },
     { href: '/admin/customers/', label: 'Customers', icon: Users, roles: ['owner', 'ops', 'support'] },
     { href: '/admin/payments/', label: 'Payments', icon: CreditCard, roles: ['owner', 'ops'] },
     { href: '/admin/plans/', label: 'Packages & prices', icon: Package, roles: ['owner', 'ops'] },

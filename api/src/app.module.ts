@@ -19,6 +19,7 @@ import { MilestoneService } from './customer/milestone.service';
 import { PerksService } from './perks/perks.service';
 import { CustomerController, DiscoverController, InviteController, PlatformController } from './customer/customer.controller';
 import { AdminService } from './admin/admin.service';
+import { AdminTransactionsService } from './admin/transactions.service';
 import { AdminAuthController, AdminController } from './admin/admin.controller';
 import { AdminAuthService } from './admin/admin-auth.service';
 import { BillingService } from './billing/billing.service';
@@ -44,7 +45,7 @@ import { CustomerDuesController, ShopDuesController } from './dues/dues.controll
     CustomerAdsController, ShopAdsController, AdminAdsController, ShopNotificationsController, CustomerNotificationsController, ShopDuesController, CustomerDuesController],
   providers: [
     Db, SmsService, AuthService, ShopService, PointsService, RedeemService, OffersService, ReportsService,
-    CustomerService, MilestoneService, AdminService, AdminAuthService, BillingService, ExpiryService, SchedulerService,
+    CustomerService, MilestoneService, AdminService, AdminTransactionsService, AdminAuthService, BillingService, ExpiryService, SchedulerService,
     ProductsService, UploadsService, AdsService, NotificationsService, PushService, DuesService, PerksService,
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: AllErrorsFilter },

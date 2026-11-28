@@ -11,6 +11,7 @@ import { BillingService } from '../billing/billing.service';
 import { FEATURES } from '../billing/entitlements';
 import { SchedulerService } from '../jobs/scheduler.service';
 import { PointsService } from '../points/points.service';
+import { AdminTransactionsService } from './transactions.service';
 
 const role = z.enum(['owner', 'ops', 'support']);
 const days = (v?: string) => Math.min(Math.max(Number(v) || 30, 7), 365);
@@ -45,7 +46,7 @@ export class AdminController {
   constructor(
     private admin: AdminService, private auth: AdminAuthService, private redeem: RedeemService,
     private expiry: ExpiryService, private sms: SmsService, private billing: BillingService, private scheduler: SchedulerService,
-    private points: PointsService,
+    private points: PointsService, private txs: AdminTransactionsService,
   ) {}
 
   // ---------------------------------------------------------------- dashboard & analytics
@@ -119,6 +120,21 @@ export class AdminController {
   resolve(@CurrentAdmin() a: AdminCtx, @Param('id') id: string, @Body() body: unknown) {
     const b = parse(z.object({ action: z.enum(['confirm', 'cancel']), note: z.string().min(3).max(300) }), body);
     return this.redeem.resolveByAdmin(a.id, id, b.action, b.note);
+  }
+
+  // ---------------------------------------------------------------- transactions (every shop <-> customer movement)
+  @AdminOnly() @Get('transactions')
+  transactions(@Query() q: Record<string, string | undefined>) {
+    return this.txs.list({
+      shopId: Number(q.shopId) || undefined, customerId: Number(q.customerId) || undefined, group: q.group, from: q.from, to: q.to, q: q.q,
+      page: Number(q.page) || 1, limit: Number(q.limit) || 50,
+    });
+  }
+
+  @AdminOnly('owner', 'ops') @Post('transactions/:id/revert')
+  revertTransaction(@CurrentAdmin() a: AdminCtx, @Param('id') id: string, @Body() body: unknown) {
+    const b = parse(z.object({ reason: z.string().trim().min(3).max(200) }), body);
+    return this.txs.revert(a.id, id, b.reason);
   }
 
   // ---------------------------------------------------------------- customers

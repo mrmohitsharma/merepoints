@@ -8,6 +8,7 @@ import { Async, Badge, Button, Card, Field, Input, MapBadge, MapPin, Modal, Note
 import { adminApi } from '@/lib/api';
 import { useAdmin } from '@/lib/admin';
 import { DeleteShopDialog, EditShopDialog } from '@/components/shop-admin';
+import { TransactionsView } from '@/components/transactions-admin';
 import { limitText, LIMIT_LABELS, Limits } from '@/lib/packages';
 import { actionLabel, BILLING, date, dateTime, inr, inrShort, mobile, pts, SHOP_STATUS } from '@/lib/format';
 
@@ -81,6 +82,7 @@ function Detail() {
             {nearbyShops.length > 0 && (
               <div className="mb-4"><Note tone="amber"><b>Possible duplicate:</b> {nearbyShops.map((n: any) => <Link key={n.id} className="underline" href={`/admin/shop/?id=${n.id}`}>{n.name} ({n.meters} m away, {SHOP_STATUS[n.status]?.label})</Link>).reduce((a: any[], x: any) => [...a, a.length ? ', ' : '', x], [])}</Note></div>
             )}
+            <div className="mb-6"><Card title="Transactions"><TransactionsView shopId={id} compact /></Card></div>
             <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
